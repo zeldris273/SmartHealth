@@ -1,0 +1,32 @@
+# Python environment
+# Loại bỏ môi trường ảo vì nó rất nặng và không cần thiết trên Git
+venv/
+env/
+.env
+
+# Python bytecode
+# Loại bỏ các tệp thực thi tạm thời của Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+# Loại bỏ các tệp dữ liệu cục bộ hoặc tệp log của database
+*.sqlite3
+*.log
+
+# IDEs and Editors
+# Loại bỏ cấu hình riêng của VS Code hoặc các editor khác
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS metadata
+# Loại bỏ các tệp hệ thống ẩn của Windows
+Thumbs.db
+desktop.ini
+
+# Docker
+# Nếu Lạc có tệp log hoặc dữ liệu tạm của Docker
+.docker/
