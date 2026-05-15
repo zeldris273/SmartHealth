@@ -3,11 +3,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from core.config import settings
-from db.database import get_db
+from app.health.core.config import settings
+from database import get_db
 
-from models.user import User
-
+from app.health.models.user import User
 
 bearer_scheme = HTTPBearer()
 
