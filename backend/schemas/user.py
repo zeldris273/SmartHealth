@@ -1,4 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
+from typing import Literal
+
 
 
 class UserRegister(BaseModel):
@@ -25,3 +27,6 @@ class UserResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+class RoleUpdate(BaseModel):
+    role: Literal["user", "admin"]
