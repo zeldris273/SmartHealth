@@ -1,13 +1,13 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from core.security import (
+from app.health.core.security import (
     create_access_token,
     hash_password,
     verify_password,
 )
-from models.user import User
-from schemas.user import UserRegister
+from app.health.models.user import User
+from app.health.schemas.user import UserRegister
 
 
 class AuthService:

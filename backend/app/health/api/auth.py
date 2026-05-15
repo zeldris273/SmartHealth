@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from core.dependencies import get_current_user
-from db.database import get_db
-from models.user import User
-from schemas.user import (
+from app.health.core.dependencies import get_current_user
+from database import get_db
+from app.health.models.user import User
+from app.health.schemas.user import (
     Token,
     UserLogin,
     UserRegister,
     UserResponse,
 )
-from services.auth_service import AuthService
+from app.health.services.auth_service import AuthService
 
 
 router = APIRouter(

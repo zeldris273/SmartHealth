@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
-from api.auth import router as auth_router
-from api.users import router as users_router
-from db.database import Base, engine
+from app.health.api.auth import router as auth_router
+from app.health.api.users import router as users_router
+from database import Base, engine
 
 Base.metadata.create_all(bind=engine)
 
