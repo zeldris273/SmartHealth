@@ -1,21 +1,17 @@
 from fastapi import FastAPI
+
 from api.auth import router as auth_router
+from api.users import router as users_router
 from db.database import Base, engine
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title="SmartHealth API",
-    description="Hệ thống quản lý sức khỏe thông minh - Team SmartHealth",
-    version="1.0.0"
-)
+app = FastAPI(title="SmartHealth API")
 
 app.include_router(auth_router)
+app.include_router(users_router)
 
-@app.get("/", tags=["Root"])
+
+@app.get("/")
 def root():
-    return {
-        "message": "SmartHealth API is running",
-        "docs": "/docs",
-        "status": "Identity API Ready"
-    }
+    return {"message": "RBAC module ready"}
