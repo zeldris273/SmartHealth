@@ -76,3 +76,15 @@ class BMIRecordResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WeightHistoryItem(BaseModel):
+    """Schema cho một item trong lịch sử cân nặng."""
+    date: str
+    weight: float
+    change: float
+
+
+class WeightHistoryResponse(BaseModel):
+    """Schema cho response lịch sử cân nặng."""
+    history: list[WeightHistoryItem]

@@ -3,6 +3,8 @@ from .bmi import (
     BMICalculateResponse,
     BMIRecordResponse,
     BMIHealthTip,
+    WeightHistoryItem,
+    WeightHistoryResponse,
 )
 
 __all__ = [
@@ -10,4 +12,6 @@ __all__ = [
     "BMICalculateResponse",
     "BMIRecordResponse",
     "BMIHealthTip",
+    "WeightHistoryItem",
+    "WeightHistoryResponse",
 ]
