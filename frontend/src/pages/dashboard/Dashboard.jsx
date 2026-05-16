@@ -1,8 +1,15 @@
+import { useState } from 'react';
 import BMICalculator from '../../components/dashboard/BMICalculator';
 import HealthChart from '../../components/dashboard/HealthChart';
 import WeightHistory from '../../components/dashboard/WeightHistory';
 
 const Dashboard = () => {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshHistory = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6">
       <h1 className="text-2xl font-semibold text-[#1e293b] mb-2">
@@ -13,9 +20,9 @@ const Dashboard = () => {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <BMICalculator />
+        <BMICalculator onSave={refreshHistory} />
         <HealthChart />
-        <WeightHistory />
+        <WeightHistory refreshKey={refreshKey} />
       </div>
     </div>
   );

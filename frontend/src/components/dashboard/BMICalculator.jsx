@@ -1,22 +1,58 @@
 import { useState } from 'react';
+import api from '../../services/api';
 
-const BMICalculator = () => {
+const BMICalculator = ({ onSave }) => {
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
+  const [saveHistory, setSaveHistory] = useState(false);
   const [bmi, setBmi] = useState(null);
   const [status, setStatus] = useState('');
+  const [statusVi, setStatusVi] = useState('');
+  const [healthyRange, setHealthyRange] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const calculateBMI = () => {
-    const h = parseFloat(height) / 100;
+  const calculateBMI = async () => {
+    const h = parseFloat(height);
     const w = parseFloat(weight);
-    if (!h || !w) return;
-    const result = (w / (h * h)).toFixed(1);
-    setBmi(result);
+    if (!h || !w) {
+      setError('Vui lòng nhập đầy đủ chiều cao và cân nặng');
+      return;
+    }
 
-    if (result < 18.5) setStatus('Thiếu cân');
-    else if (result < 24.9) setStatus('Bình thường');
-    else if (result < 29.9) setStatus('Thừa cân');
-    else setStatus('Béo phì');
+    setLoading(true);
+    setError('');
+
+    try {
+      let response;
+      
+      if (saveHistory) {
+        response = await api.post('/health/bmi/save', {
+          weight_kg: w,
+          height_cm: h,
+        });
+      } else {
+        response = await api.post('/health/bmi', {
+          weight_kg: w,
+          height_cm: h,
+        });
+      }
+
+      const data = response.data;
+      setBmi(data.bmi_value);
+      setStatus(data.bmi_category);
+      setStatusVi(data.bmi_category_vi);
+      setHealthyRange(data.healthy_weight_range_kg);
+      
+      if (onSave && saveHistory) {
+        onSave();
+      }
+    } catch (err) {
+      console.error('Error calculating BMI:', err);
+      setError('Có lỗi xảy ra khi tính BMI. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,17 +86,42 @@ const BMICalculator = () => {
         />
       </div>
 
+      <div className="mb-4 flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="saveHistory"
+          checked={saveHistory}
+          onChange={(e) => setSaveHistory(e.target.checked)}
+          className="w-4 h-4 text-red-500 rounded focus:ring-red-400"
+        />
+        <label htmlFor="saveHistory" className="text-xs text-gray-600">
+          Lưu lịch sử cân nặng
+        </label>
+      </div>
+
+      {error && (
+        <div className="mb-4 bg-red-50 text-red-600 text-sm rounded-xl p-3">
+          {error}
+        </div>
+      )}
+
       <button
         onClick={calculateBMI}
-        className="w-full bg-red-500 text-white rounded-full py-2 text-sm font-medium hover:bg-red-600 transition"
+        disabled={loading}
+        className="w-full bg-red-500 text-white rounded-full py-2 text-sm font-medium hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Tính BMI
+        {loading ? 'Đang tính...' : 'Tính BMI'}
       </button>
 
       {bmi && (
         <div className="mt-4 bg-red-50 rounded-xl p-4 text-center">
           <div className="text-3xl font-semibold text-red-500">{bmi}</div>
-          <div className="text-sm text-red-800 mt-1">{status}</div>
+          <div className="text-sm text-red-800 mt-1">{statusVi}</div>
+          {healthyRange && (
+            <div className="text-xs text-red-600 mt-2">
+              Cân nặng lý tưởng: {healthyRange}
+            </div>
+          )}
         </div>
       )}
     </div>
