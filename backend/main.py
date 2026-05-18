@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.health.api.auth import router as auth_router
 from app.health.api.users import router as users_router
 from app.health.api.bmi import router as bmi_router
+from app.health.api.calories import router as calories_router
 from database import Base, engine
 
 Base.metadata.create_all(bind=engine)
@@ -27,6 +28,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(bmi_router)
+app.include_router(calories_router)
 
 
 @app.get("/")

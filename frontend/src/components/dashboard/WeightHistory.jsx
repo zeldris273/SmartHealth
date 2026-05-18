@@ -47,9 +47,9 @@ const WeightHistory = ({ refreshKey }) => {
           Chưa có lịch sử cân nặng
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-60 overflow-y-auto">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-white">
               <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                 <th className="pb-2">Ngày</th>
                 <th className="pb-2">Cân nặng (kg)</th>
