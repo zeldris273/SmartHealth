@@ -6,6 +6,10 @@ from .bmi import (
     WeightHistoryItem,
     WeightHistoryResponse,
 )
+from .calories import (
+    CaloriesCalculationRequest,
+    CaloriesCalculationResponse,
+)
 
 __all__ = [
     "BMICalculateRequest",
@@ -14,4 +18,6 @@ __all__ = [
     "BMIHealthTip",
     "WeightHistoryItem",
     "WeightHistoryResponse",
+    "CaloriesCalculationRequest",
+    "CaloriesCalculationResponse",
 ]
