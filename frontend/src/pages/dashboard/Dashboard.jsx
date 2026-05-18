@@ -2,6 +2,7 @@ import { useState } from 'react';
 import BMICalculator from '../../components/dashboard/BMICalculator';
 import HealthChart from '../../components/dashboard/HealthChart';
 import WeightHistory from '../../components/dashboard/WeightHistory';
+import CaloriesCalculator from '../../components/dashboard/CaloriesCalculator';
 
 const Dashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -23,6 +24,7 @@ const Dashboard = () => {
         <BMICalculator onSave={refreshHistory} />
         <HealthChart />
         <WeightHistory refreshKey={refreshKey} />
+        <CaloriesCalculator />
       </div>
     </div>
   );

@@ -6,6 +6,13 @@ from .bmi_calculator import (
     BMICategory,
     BMIResult,
 )
+from .calories_calculator import (
+    calculate_bmr,
+    calculate_tdee,
+    process_calories,
+    ActivityLevel,
+    CaloriesResult,
+)
 
 __all__ = [
     "calculate_bmi",
@@ -14,4 +21,9 @@ __all__ = [
     "process_bmi",
     "BMICategory",
     "BMIResult",
+    "calculate_bmr",
+    "calculate_tdee",
+    "process_calories",
+    "ActivityLevel",
+    "CaloriesResult",
 ]
