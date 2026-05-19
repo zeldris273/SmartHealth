@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../../services/api';
+import HealthTipsModal from './HealthTipsModal';
 
 const CaloriesCalculator = () => {
   const [weight, setWeight] = useState('');
@@ -10,6 +11,21 @@ const CaloriesCalculator = () => {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showTipsModal, setShowTipsModal] = useState(false);
+  const [showLoginWarning, setShowLoginWarning] = useState(false);
+
+  const isLoggedIn = () => {
+    return !!localStorage.getItem('access_token');
+  };
+
+  const handleOpenTipsModal = () => {
+    if (!isLoggedIn()) {
+      setShowLoginWarning(true);
+      setTimeout(() => setShowLoginWarning(false), 3000);
+      return;
+    }
+    setShowTipsModal(true);
+  };
 
   const handleCalculate = async (e) => {
     e.preventDefault();
@@ -130,8 +146,31 @@ const CaloriesCalculator = () => {
               <p className="text-xs text-green-600 mt-1">{result.tdee_explanation}</p>
             </div>
           </div>
+          
+          {/* Nút nhận gợi ý sức khỏe */}
+          <button
+            onClick={handleOpenTipsModal}
+            className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+          >
+             Nhận gợi ý sức khỏe cá nhân hóa
+          </button>
+
+          {/* Thông báo cần đăng nhập */}
+          {showLoginWarning && (
+            <div className="mt-4 p-3 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-300">
+              Vui lòng đăng nhập để dùng tính năng này!
+            </div>
+          )}
         </div>
       )}
+
+      {/* Modal gợi ý sức khỏe */}
+      <HealthTipsModal
+        isOpen={showTipsModal}
+        onClose={() => setShowTipsModal(false)}
+        tdee={result?.tdee}
+        currentWeight={parseFloat(weight)}
+      />
     </div>
   );
 };

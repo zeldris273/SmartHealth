@@ -6,22 +6,47 @@ const WeightHistory = ({ refreshKey }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const isLoggedIn = () => {
+    return !!localStorage.getItem('access_token');
+  };
+
   useEffect(() => {
     fetchWeightHistory();
   }, [refreshKey]);
 
   const fetchWeightHistory = async () => {
+    if (!isLoggedIn()) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await api.get('/health/weight/history');
       setHistory(response.data.history);
     } catch (err) {
       console.error('Error fetching weight history:', err);
-      setError('Không thể tải lịch sử cân nặng');
+      setError(err.response?.data?.detail || 'Đã xảy ra lỗi khi tải dữ liệu');
     } finally {
       setLoading(false);
     }
   };
+
+  if (!isLoggedIn()) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 md:col-span-2">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">
+          Lịch sử cân nặng
+        </h2>
+        <p className="text-xs text-gray-400 italic mb-4">
+          "I cannot deactivate until you are satisfied with your care."
+        </p>
+        <div className="text-center text-yellow-600 py-8">
+          ⚠️ Vui lòng đăng nhập để xem lịch sử
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 md:col-span-2">

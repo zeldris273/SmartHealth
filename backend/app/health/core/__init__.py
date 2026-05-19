@@ -13,6 +13,16 @@ from .calories_calculator import (
     ActivityLevel,
     CaloriesResult,
 )
+from .health_tips import (
+    analyze_weight_trend,
+    generate_goal_tips,
+    process_health_tips,
+    WeightTrendAnalysis,
+    FoodRecommendations,
+    ExercisePlan,
+    GoalTips,
+    HealthTipsResult,
+)
 
 __all__ = [
     "calculate_bmi",
@@ -26,4 +36,12 @@ __all__ = [
     "process_calories",
     "ActivityLevel",
     "CaloriesResult",
+    "analyze_weight_trend",
+    "generate_goal_tips",
+    "process_health_tips",
+    "WeightTrendAnalysis",
+    "FoodRecommendations",
+    "ExercisePlan",
+    "GoalTips",
+    "HealthTipsResult",
 ]
