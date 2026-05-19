@@ -22,7 +22,7 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <BMICalculator onSave={refreshHistory} />
-        <HealthChart />
+        <HealthChart refreshKey={refreshKey} />
         <WeightHistory refreshKey={refreshKey} />
         <CaloriesCalculator />
       </div>
