@@ -14,9 +14,9 @@ const Button = forwardRef(({
   const baseStyles = "relative inline-flex items-center justify-center font-medium transition-all duration-300 outline-none rounded-xl overflow-hidden group";
   
   const variants = {
-    primary: "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/30 focus:ring-2 focus:ring-blue-500/50 border border-blue-400/20",
-    secondary: "bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 shadow-lg focus:ring-2 focus:ring-white/30",
-    ghost: "text-blue-200 hover:bg-white/10 hover:text-white"
+    primary: "bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-500/30 focus:ring-2 focus:ring-red-500/50 border border-red-400/20",
+    secondary: "bg-white/80 backdrop-blur-md text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm focus:ring-2 focus:ring-slate-200",
+    ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
   };
 
   const sizes = {

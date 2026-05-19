@@ -9,6 +9,23 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalType, setAuthModalType] = useState('login'); // 'login' or 'register'
+
+  const openAuthModal = (type = 'login') => {
+    setAuthModalType(type);
+    setIsAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false);
+  };
+
+  const toggleAuthModalType = () => {
+    setAuthModalType(prev => prev === 'login' ? 'register' : 'login');
+  };
+
   useEffect(() => {
     let mounted = true;
     const initAuth = async () => {
@@ -90,7 +107,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ 
+      user, isAuthenticated, isLoading, login, register, logout,
+      isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType
+    }}>
       {children}
     </AuthContext.Provider>
   );

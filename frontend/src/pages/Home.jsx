@@ -88,7 +88,7 @@ const FeatureWheel = () => {
 const Home = () => {
   const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, openAuthModal } = useAuth();
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
@@ -137,13 +137,13 @@ const Home = () => {
           ) : (
             <>
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => openAuthModal('login')}
                 className="text-sm text-gray-500 hover:text-red-500 transition-all duration-200 hover:scale-105"
               >
                 Login
               </button>
               <button
-                onClick={() => navigate('/register')}
+                onClick={() => openAuthModal('register')}
                 className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full px-4 py-2 text-sm font-medium hover:shadow-md hover:scale-105 transition-all duration-200"
               >
                 Register

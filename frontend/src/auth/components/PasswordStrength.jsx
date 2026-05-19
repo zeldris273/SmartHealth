@@ -21,12 +21,12 @@ const PasswordStrength = ({ password }) => {
 
   const getStrengthData = () => {
     switch (strength) {
-      case 0: return { label: 'Enter password', color: 'bg-white/10', text: 'text-blue-200', icon: Shield };
-      case 1: return { label: 'Weak', color: 'bg-red-400', text: 'text-red-400', icon: ShieldAlert };
-      case 2: return { label: 'Fair', color: 'bg-yellow-400', text: 'text-yellow-400', icon: ShieldAlert };
-      case 3: return { label: 'Good', color: 'bg-blue-400', text: 'text-blue-400', icon: ShieldCheck };
-      case 4: return { label: 'Strong', color: 'bg-cyan-400', text: 'text-cyan-400', icon: ShieldCheck };
-      default: return { label: '', color: 'bg-white/10', text: 'text-blue-200', icon: Shield };
+      case 0: return { label: 'Enter password', color: 'bg-slate-200', text: 'text-slate-400', icon: Shield };
+      case 1: return { label: 'Weak', color: 'bg-red-500', text: 'text-red-500', icon: ShieldAlert };
+      case 2: return { label: 'Fair', color: 'bg-orange-400', text: 'text-orange-400', icon: ShieldAlert };
+      case 3: return { label: 'Good', color: 'bg-rose-400', text: 'text-rose-400', icon: ShieldCheck };
+      case 4: return { label: 'Strong', color: 'bg-red-400', text: 'text-red-400', icon: ShieldCheck };
+      default: return { label: '', color: 'bg-slate-200', text: 'text-slate-400', icon: Shield };
     }
   };
 
@@ -35,7 +35,7 @@ const PasswordStrength = ({ password }) => {
   return (
     <div className="mt-2 flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-xs font-medium">
-        <span className="text-blue-200 flex items-center gap-1">
+        <span className="text-slate-500 flex items-center gap-1">
           <Icon size={12} className={text} />
           Password Strength
         </span>
@@ -46,7 +46,7 @@ const PasswordStrength = ({ password }) => {
           <div
             key={level}
             className={`flex-1 rounded-full transition-all duration-300 ${
-              strength >= level ? color : 'bg-white/10'
+              strength >= level ? color : 'bg-slate-200'
             }`}
           />
         ))}

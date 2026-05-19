@@ -1,4 +1,9 @@
 @import "tailwindcss";
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }
   14% { transform: scale(1.1); }
