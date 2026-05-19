@@ -6,6 +6,7 @@ from app.health.api.users import router as users_router
 from app.health.api.bmi import router as bmi_router
 from app.health.api.calories import router as calories_router
 from app.health.api.health_tips import router as health_tips_router
+from app.health.api.chat import router as chat_router
 from database import Base, engine
 
 Base.metadata.create_all(bind=engine)
@@ -31,6 +32,7 @@ app.include_router(users_router)
 app.include_router(bmi_router)
 app.include_router(calories_router)
 app.include_router(health_tips_router)
+app.include_router(chat_router)
 
 
 @app.get("/")
