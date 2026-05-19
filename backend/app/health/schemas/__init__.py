@@ -20,4 +20,9 @@ __all__ = [
     "WeightHistoryResponse",
     "CaloriesCalculationRequest",
     "CaloriesCalculationResponse",
+    "ChatMessage",
+    "ChatRequest",
+    "ChatResponse",
 ]
+
+from .chat import ChatMessage, ChatRequest, ChatResponse

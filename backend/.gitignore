@@ -3,6 +3,8 @@
 venv/
 env/
 .env
+.env.*
+!.env.example
 
 # Python bytecode
 # Loại bỏ các tệp thực thi tạm thời của Python
@@ -30,3 +32,21 @@ desktop.ini
 # Docker
 # Nếu Lạc có tệp log hoặc dữ liệu tạm của Docker
 .docker/
+
+# Test cache
+.pytest_cache/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Type checker cache
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
