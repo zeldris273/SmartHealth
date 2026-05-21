@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
-import { loginAPI, registerAPI, getProfileAPI } from '../services/auth';
+import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI } from '../services/auth';
 import { toast } from 'react-toastify';
 
 const AuthContext = createContext(null);
@@ -9,26 +9,65 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalType, setAuthModalType] = useState('login'); // 'login' or 'register'
+
+  const getStoredToken = () => {
+    return localStorage.getItem('token') || localStorage.getItem('access_token');
+  };
+
+  const saveToken = (token) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('access_token', token);
+  };
+
+  const clearStoredTokens = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('access_token');
+  };
+
+  const openAuthModal = (type = 'login') => {
+    setAuthModalType(type);
+    setIsAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false);
+  };
+
+  const toggleAuthModalType = () => {
+    setAuthModalType(prev => prev === 'login' ? 'register' : 'login');
+  };
+
   useEffect(() => {
     let mounted = true;
     const initAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const userProfile = await getProfileAPI();
-          if (mounted) {
-            setUser(userProfile);
-            setIsAuthenticated(true);
-          }
-        } catch (error) {
-          console.error('Failed to restore session:', error);
-          localStorage.removeItem('token');
-          if (mounted) {
-            setUser(null);
-            setIsAuthenticated(false);
-          }
+      const token = getStoredToken();
+      if (!token) {
+        if (mounted) setIsLoading(false);
+        return;
+      }
+
+      saveToken(token);
+
+      try {
+        const userProfile = await getProfileAPI();
+        if (mounted && userProfile?.id) {
+          setUser(userProfile);
+          setIsAuthenticated(true);
+        } else {
+          clearStoredTokens();
+        }
+      } catch (error) {
+        console.error('Failed to restore session:', error);
+        clearStoredTokens();
+        if (mounted) {
+          setUser(null);
+          setIsAuthenticated(false);
         }
       }
+
       if (mounted) {
         setIsLoading(false);
       }
@@ -42,19 +81,29 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(true);
     try {
       const data = await loginAPI(credentials);
-      if (data.access_token) {
-        localStorage.setItem('token', data.access_token);
-        const userProfile = await getProfileAPI();
-        setUser(userProfile);
-        setIsAuthenticated(true);
-        toast.success('Successfully logged in!');
-        return { success: true };
+      const token = data?.access_token || data?.token;
+
+      if (!token) {
+        throw new Error('Login response did not include an access token');
       }
-      return { success: false, error: 'Invalid response from server' };
+
+      saveToken(token);
+      const userProfile = await getProfileAPI();
+
+      if (!userProfile?.id) {
+        throw new Error('Failed to fetch user profile after login');
+      }
+
+      setUser(userProfile);
+      setIsAuthenticated(true);
+      toast.success('Successfully logged in!');
+      return { success: true };
     } catch (error) {
       console.error('Login Error:', error);
-      toast.error(error.message || 'Login failed');
-      return { success: false, error: error.message };
+      clearStoredTokens();
+      const errorMessage = error?.detail || error?.message || 'Login failed';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
@@ -66,31 +115,62 @@ export const AuthProvider = ({ children }) => {
       const data = await registerAPI({
         full_name: userData.fullName,
         email: userData.email,
-        password: userData.password
+        password: userData.password,
+        otp: userData.otp
       });
-      if (data.id) {
-        toast.success('Successfully registered!');
-        return await login({ email: userData.email, password: userData.password });
+
+      if (!data?.id) {
+        throw new Error('Invalid response from server');
       }
-      return { success: false, error: 'Invalid response from server' };
+
+      toast.success('Registration successful! Please log in with your credentials.');
+      return { success: true };
     } catch (error) {
       console.error('Register Error:', error);
-      toast.error(error.message || 'Registration failed');
-      return { success: false, error: error.message };
+      const errorMessage = error?.detail || error?.message || 'Registration failed';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    clearStoredTokens();
     setUser(null);
     setIsAuthenticated(false);
     toast.success('Logged out successfully');
   };
 
+  const updateProfile = async (profileData) => {
+    setIsLoading(true);
+    try {
+      // Use the placeholder API which currently simulates a delay
+      const updatedData = await updateProfileAPI(profileData);
+      
+      // Update local state with the new data
+      setUser(prev => ({
+        ...prev,
+        ...profileData // In a real app, you would use updatedData from backend
+      }));
+      
+      toast.success('Profile updated successfully!');
+      return { success: true };
+    } catch (error) {
+      console.error('Update Profile Error:', error);
+      const errorMessage = error.detail || error.message || 'Failed to update profile';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ 
+      user, isAuthenticated, isLoading, login, register, logout, updateProfile,
+      isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType
+    }}>
       {children}
     </AuthContext.Provider>
   );
