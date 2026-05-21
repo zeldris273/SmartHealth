@@ -1,29 +1,47 @@
-# Chatbot Gemini Backend - SmartHealth
+# SmartHealth Chatbot Backend
 
-## Các file đã thêm/sửa
+## Tính năng đã bổ sung
 
-- `app/health/api/chat.py` - API route `POST /health/chat`
-- `app/health/schemas/chat.py` - request/response schema cho chatbot
-- `app/health/services/chat_service.py` - logic tạo prompt và gọi Gemini API
-- `app/health/tests/test_chatbot.py` - unit test cho chatbot
-- `main.py` - đăng ký `chat_router`
-- `app/health/api/__init__.py` và `app/health/schemas/__init__.py` - export module mới
+- Chọn AI provider bằng `.env`: `gemini` hoặc `openai`.
+- Chọn model bằng `.env`, không cần sửa code.
+- `POST /health/chat` trả lời câu hỏi sức khỏe.
+- Nếu người dùng gửi Bearer token hợp lệ:
+  - chatbot tự đọc BMI mới nhất trong bảng `bmi_records` nếu `use_saved_bmi=true`.
+  - backend lưu lịch sử chat vào bảng `chat_messages` nếu `save_history=true`.
+- `GET /health/chat/history` lấy lịch sử chat của người dùng hiện tại.
+- Có unit test chatbot trong `app/health/tests/test_chatbot.py`.
 
-## Cấu hình API key
+## Cấu hình `.env`
 
-Trong thư mục `backend`, tạo file `.env` từ `.env.example`:
+Copy file mẫu:
 
 ```bash
 copy .env.example .env
 ```
 
-Sau đó sửa dòng:
+### Dùng Gemini
 
 ```env
+AI_PROVIDER=gemini
 GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
-thành API key thật.
+Muốn đổi sang Pro:
+
+```env
+GEMINI_MODEL=gemini-2.5-pro
+```
+
+### Dùng OpenAI
+
+```env
+AI_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Sau khi sửa `.env`, chạy lại backend.
 
 ## Cài thư viện
 
@@ -34,46 +52,96 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-Nếu máy chưa có pytest để chạy test, cài thêm:
-
-```bash
-pip install pytest
-```
-
 ## Chạy backend
 
 ```bash
 uvicorn main:app --reload
 ```
 
-Mở Swagger UI:
+Mở Swagger:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Endpoint chatbot:
+## Gọi chatbot không đăng nhập
+
+```json
+POST /health/chat
+{
+  "message": "Tôi muốn giảm cân an toàn thì nên làm gì?",
+  "bmi": 27.5
+}
+```
+
+Trường hợp này chatbot dùng BMI do frontend truyền lên, nhưng không lưu lịch sử.
+
+## Gọi chatbot có đăng nhập
+
+Gửi kèm header:
 
 ```text
-POST /health/chat
+Authorization: Bearer <access_token>
 ```
 
-Body mẫu:
+Body:
 
 ```json
 {
-  "message": "Tôi bị đau đầu và hơi sốt thì nên làm gì?",
-  "bmi": 23.5,
-  "history": []
+  "message": "Dựa trên BMI của tôi, tôi nên ăn uống thế nào?",
+  "use_saved_bmi": true,
+  "save_history": true
 }
 ```
 
-Response mẫu:
+Nếu user đã từng dùng `/health/bmi/save`, chatbot sẽ tự lấy BMI mới nhất trong database.
+
+Response có dạng:
 
 ```json
 {
-  "reply": "Bạn nên nghỉ ngơi, uống đủ nước..."
+  "reply": "...",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "session_id": "...",
+  "bmi": 27.5,
+  "saved": true
 }
+```
+
+## Lấy lịch sử chat
+
+```text
+GET /health/chat/history
+Authorization: Bearer <access_token>
+```
+
+Lọc theo phiên chat:
+
+```text
+GET /health/chat/history?session_id=<session_id>
+```
+
+## Database
+
+Đã thêm model:
+
+```text
+app/health/models/chat.py
+```
+
+Bảng mới:
+
+```text
+chat_messages
+```
+
+Nếu chạy app trực tiếp, `Base.metadata.create_all(bind=engine)` trong `main.py` có thể tự tạo bảng.
+
+Nếu nhóm dùng Alembic, chạy:
+
+```bash
+alembic upgrade head
 ```
 
 ## Chạy test chatbot
@@ -81,9 +149,3 @@ Response mẫu:
 ```bash
 pytest app/health/tests/test_chatbot.py -v
 ```
-
-## Lưu ý
-
-- Chatbot chỉ hỗ trợ nội dung liên quan đến sức khỏe/y tế.
-- Nếu câu hỏi ngoài lĩnh vực sức khỏe, API sẽ trả về câu từ chối cố định.
-- Nếu chưa cấu hình `GEMINI_API_KEY`, API sẽ trả lỗi `503`.
