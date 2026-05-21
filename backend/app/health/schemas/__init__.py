@@ -14,6 +14,7 @@ from .chat import (
     ChatHistoryItem,
     ChatRequest,
     ChatResponse,
+    ChatMessageResponse,
 )
 from .health_tips import (
     HealthTipsRequest,
@@ -36,6 +37,7 @@ __all__ = [
     "ChatHistoryItem",
     "ChatRequest",
     "ChatResponse",
+    "ChatMessageResponse",
     "HealthTipsRequest",
     "HealthTipsResponse",
     "WeightTrendAnalysisResponse",
