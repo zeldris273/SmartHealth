@@ -26,3 +26,17 @@ export const getProfileAPI = async () => {
     throw error.response?.data || new Error('Failed to fetch profile');
   }
 };
+
+// Placeholder for future backend integration
+export const updateProfileAPI = async (profileData) => {
+  // TODO: Replace with real API call when backend is ready
+  // const response = await api.patch('/users/me', profileData);
+  // return response.data;
+  
+  // For now, simulate network delay and return the data as if successful
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, ...profileData });
+    }, 800);
+  });
+};
