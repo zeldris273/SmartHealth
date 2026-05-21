@@ -1,33 +1,73 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.health.core.dependencies import require_role
-from database import get_db
+# Chuẩn hóa đường dẫn import đồng bộ với toàn bộ dự án của Lạc
+from app.health.core.dependencies import get_current_user  # Hàm lấy user từ token thông thường
+from app.health.core.dependencies import require_role  # Hàm check quyền Admin của Lạc
+from database import get_db  # Để nguyên theo đường dẫn chuẩn file main.py của bạn
 from app.health.models.user import User
-from app.health.schemas.user import RoleUpdate, UserResponse
-
+from app.health.schemas.user import UserProfileUpdate, UserResponse, RoleUpdate
+from app.health.services.user_service import UserService
 
 router = APIRouter(
     prefix="/users",
-    tags=["User Management"],
+    tags=["Users & Management"],
 )
 
+# ==========================================
+# 1. CÁC ENDPOINTS DÀNH CHO USER TỰ XỬ LÝ
+# ==========================================
+
+@router.get(
+    "/me", 
+    response_model=UserResponse,
+    summary="Lấy thông tin profile của người dùng hiện tại"
+)
+def get_my_profile(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user
+
+
+@router.patch(
+    "/me", 
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Cập nhật thông tin hồ sơ cá nhân (Profile)"
+)
+def update_my_profile(
+    payload: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Gọi sang tầng Service xử lý logic kiểm tra trùng lặp SĐT/CCCD và cập nhật
+    return UserService.update_profile(
+        db=db, 
+        current_user=current_user, 
+        payload=payload
+    )
+
+
+# ==========================================
+# 2. CÁC ENDPOINTS DÀNH CHO ADMIN QUẢN TRỊ
+# ==========================================
 
 @router.get(
     "/{user_id}",
     response_model=UserResponse,
+    summary="[Admin] Xem chi tiết thông tin của một User bất kỳ bằng ID"
 )
 def get_user_by_id(
     user_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_role("admin")),
+    _: User = Depends(require_role("admin")), # Ép buộc phải là Admin mới gọi được cổng này
 ):
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Không tìm thấy người dùng này trên hệ thống.",
         )
 
     return user
@@ -36,6 +76,7 @@ def get_user_by_id(
 @router.patch(
     "/{user_id}/role",
     response_model=UserResponse,
+    summary="[Admin] Thay đổi quyền (Role) của người dùng"
 )
 def update_user_role(
     user_id: int,
@@ -48,16 +89,17 @@ def update_user_role(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Không tìm thấy người dùng này trên hệ thống.",
         )
 
     # Không cho phép admin tự hạ quyền chính mình
     if current_admin.id == user.id and payload.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You cannot remove your own admin role",
+            detail="Bạn không thể tự gỡ bỏ quyền Admin của chính mình.",
         )
 
+    # Cập nhật quyền mới
     user.role = payload.role
 
     db.commit()

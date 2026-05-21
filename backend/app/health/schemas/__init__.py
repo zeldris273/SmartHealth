@@ -10,6 +10,12 @@ from .calories import (
     CaloriesCalculationRequest,
     CaloriesCalculationResponse,
 )
+from .chat import (
+    ChatHistoryItem,
+    ChatRequest,
+    ChatResponse,
+    ChatMessageResponse,
+)
 from .health_tips import (
     HealthTipsRequest,
     HealthTipsResponse,
@@ -28,6 +34,10 @@ __all__ = [
     "WeightHistoryResponse",
     "CaloriesCalculationRequest",
     "CaloriesCalculationResponse",
+    "ChatHistoryItem",
+    "ChatRequest",
+    "ChatResponse",
+    "ChatMessageResponse",
     "HealthTipsRequest",
     "HealthTipsResponse",
     "WeightTrendAnalysisResponse",
