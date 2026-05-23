@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { X, Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Input from './Input';
 import Button from './Button';
 import PasswordStrength from './PasswordStrength';
-import { useNavigate, useLocation } from 'react-router-dom';
 
 const AuthModal = () => {
-  const { isAuthModalOpen, closeAuthModal, authModalType, toggleAuthModalType, login, register } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, openAuthModal, authModalType, toggleAuthModalType, login, register, isAuthenticated } = useAuth();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -32,6 +33,12 @@ const AuthModal = () => {
       setShowPassword(false);
     }
   }, [isAuthModalOpen, authModalType]);
+
+  useEffect(() => {
+    if (isAuthenticated && isAuthModalOpen) {
+      closeAuthModal();
+    }
+  }, [isAuthenticated, isAuthModalOpen, closeAuthModal]);
 
   if (!isAuthModalOpen) return null;
 
@@ -87,10 +94,11 @@ const AuthModal = () => {
     } else {
       // Using email prefix as full_name for backend compatibility since we only have Email field now
       const username = formData.email.split('@')[0];
-      const result = await register({ fullName: username, email: formData.email, password: formData.password });
+      const result = await register({ fullName: username, email: formData.email, password: formData.password, otp: formData.otp });
+      
       if (result.success) {
         closeAuthModal();
-        navigate('/profile', { replace: true });
+        navigate('/login', { replace: true });
       }
     }
     
@@ -231,10 +239,11 @@ const AuthModal = () => {
               {isLogin ? "Don't have an account? " : "Already have an account? "}
             </span>
             <button
-              onClick={toggleAuthModalType}
+              type="button"
+              onClick={() => navigate(isLogin ? '/register' : '/login')}
               className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors focus:outline-none"
             >
-              {isLogin ? 'Sign up' : 'Sign in'}
+              {isLogin ? 'Register' : 'Sign in'}
             </button>
           </div>
         </div>

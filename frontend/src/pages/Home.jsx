@@ -97,61 +97,6 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex flex-col">
 
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <BaymaxLogo size={36} />
-          <span className="text-lg font-semibold text-[#1e293b]">SmartHealth</span>
-        </div>
-        <nav className="flex items-center gap-6">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-sm text-gray-500 hover:text-red-500 transition-all duration-200 hover:scale-105"
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => navigate('/chatbot')}
-            className="text-sm text-gray-500 hover:text-red-500 transition-all duration-200 hover:scale-105"
-          >
-            Chatbot
-          </button>
-          {isAuthenticated ? (
-            <>
-              <button
-                onClick={() => navigate('/profile')}
-                className="text-sm text-gray-500 hover:text-red-500 transition-all duration-200 hover:scale-105"
-              >
-                Profile
-              </button>
-              <button
-                onClick={() => {
-                  logout();
-                  navigate('/');
-                }}
-                className="bg-red-50 text-red-500 border border-red-100 rounded-full px-4 py-2 text-sm font-medium hover:bg-red-100 transition-all duration-200"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => openAuthModal('login')}
-                className="text-sm text-gray-500 hover:text-red-500 transition-all duration-200 hover:scale-105"
-              >
-                Login
-              </button>
-              <button
-                onClick={() => openAuthModal('register')}
-                className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full px-4 py-2 text-sm font-medium hover:shadow-md hover:scale-105 transition-all duration-200"
-              >
-                Register
-              </button>
-            </>
-          )}
-        </nav>
-      </header>
 
       {/* Hero */}
       <section className={`flex flex-col items-center justify-center text-center px-6 py-16 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
