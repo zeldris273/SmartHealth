@@ -20,6 +20,8 @@ const AuthModal = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,6 +33,8 @@ const AuthModal = () => {
       setFormData({ email: '', password: '', confirmPassword: '', otp: '' });
       setErrors({});
       setShowPassword(false);
+      setIsOtpSent(false);
+      setIsSendingOtp(false);
     }
   }, [isAuthModalOpen, authModalType]);
 
@@ -79,30 +83,53 @@ const AuthModal = () => {
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
   };
 
+  const handleSendOtp = () => {
+    const email = formData.email.trim();
+    const emailValid = /^\S+@\S+\.\S+$/.test(email);
+
+    if (!emailValid) {
+      setErrors(prev => ({
+        ...prev,
+        email: email ? 'Invalid email address' : 'Email is required',
+      }));
+      return;
+    }
+
+    setIsSendingOtp(true);
+    setErrors(prev => ({ ...prev, email: undefined }));
+    console.log('OTP sent to:', email);
+
+    window.setTimeout(() => {
+      setIsSendingOtp(false);
+      setIsOtpSent(true);
+      toast.success(`OTP sent to ${email}`);
+    }, 1000);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
-    
-    if (isLogin) {
-      const result = await login({ email: formData.email, password: formData.password }, rememberMe);
-      if (result.success) {
-        closeAuthModal();
-        navigate(from, { replace: true });
+    try {
+      if (isLogin) {
+        const result = await login({ email: formData.email, password: formData.password }, rememberMe);
+        if (result.success) {
+          closeAuthModal();
+          navigate(from, { replace: true });
+        }
+      } else {
+        const username = formData.email.split('@')[0];
+        const result = await register({ fullName: username, email: formData.email, password: formData.password, otp: formData.otp });
+
+        if (result.success) {
+          closeAuthModal();
+          navigate('/login', { replace: true });
+        }
       }
-    } else {
-      // Using email prefix as full_name for backend compatibility since we only have Email field now
-      const username = formData.email.split('@')[0];
-      const result = await register({ fullName: username, email: formData.email, password: formData.password, otp: formData.otp });
-      
-      if (result.success) {
-        closeAuthModal();
-        navigate('/login', { replace: true });
-      }
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   // Click outside to close
@@ -145,7 +172,6 @@ const AuthModal = () => {
         {/* Modal Body (Form) */}
         <div className="px-8 pb-8">
           <form onSubmit={handleSubmit} className="space-y-4">
-            
             <Input
               label="Email Address"
               name="email"
@@ -192,17 +218,32 @@ const AuthModal = () => {
                   icon={Lock}
                 />
 
-                <Input
-                  label="One-Time Password (OTP)"
-                  name="otp"
-                  type="text"
-                  placeholder="Enter 6-digit OTP"
-                  value={formData.otp}
-                  onChange={handleChange}
-                  error={errors.otp}
-                  icon={ShieldCheck}
-                  maxLength={6}
-                />
+                <div className="flex flex-col gap-3">
+                  <span className="text-sm font-medium text-slate-700">One-Time Password (OTP)</span>
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1">
+                      <Input
+                        name="otp"
+                        type="text"
+                        placeholder="Enter 6-digit OTP"
+                        value={formData.otp}
+                        onChange={handleChange}
+                        error={errors.otp}
+                        icon={ShieldCheck}
+                        maxLength={6}
+                        className="w-full"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={isSendingOtp}
+                      className="h-12 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    >
+                      {isSendingOtp ? 'Sending...' : isOtpSent ? 'Resend OTP' : 'Send OTP'}
+                    </button>
+                  </div>
+                </div>
               </>
             )}
 
