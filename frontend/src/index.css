@@ -15,3 +15,31 @@ body {
 .animate-heartbeat {
   animation: heartbeat 1.5s ease-in-out infinite;
 }
+
+@keyframes ekg-draw {
+  0% {
+    stroke-dashoffset: 200;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.3;
+  }
+}
+
+.auth-ekg path {
+  stroke-dasharray: 200;
+  animation: ekg-draw 3s ease-in-out infinite;
+}
+
+.auth-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 20% 30%, rgba(139, 43, 43, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(139, 43, 43, 0.06) 0%, transparent 35%);
+  pointer-events: none;
+}

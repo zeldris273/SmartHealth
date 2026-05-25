@@ -1,7 +1,18 @@
 import { forwardRef } from 'react';
 
-const Input = forwardRef(({ label, error, icon: Icon, type = 'text', options = [], className = '', ...props }, ref) => {
-  const baseClasses = `
+const Input = forwardRef(({ label, error, icon: Icon, type = 'text', options = [], theme = 'light', className = '', ...props }, ref) => {
+  const isDark = theme === 'dark';
+
+  const baseClasses = isDark
+    ? `
+    w-full border-0 border-b bg-transparent
+    px-0 py-2.5 text-sm transition-all duration-300 outline-none
+    border-b-white/20 text-white placeholder:text-[#555555]
+    focus:border-[#8b2b2b] focus:shadow-[0_4px_12px_-4px_rgba(139,43,43,0.5)]
+    ${Icon ? 'pl-8' : ''}
+    ${error ? 'border-b-[#8b2b2b]/80' : ''}
+  `
+    : `
     w-full rounded-xl border bg-white/50 backdrop-blur-md
     px-4 py-2.5 text-sm transition-all duration-300 outline-none
     focus:bg-white focus:ring-2 focus:ring-red-500/40 focus:border-red-400
@@ -13,13 +24,13 @@ const Input = forwardRef(({ label, error, icon: Icon, type = 'text', options = [
   return (
     <div className={`w-full flex flex-col gap-1.5 ${className}`}>
       {label && (
-        <label className="text-sm font-medium text-slate-700">
+        <label className={`text-xs font-medium tracking-wide uppercase ${isDark ? 'text-[#888888]' : 'text-slate-700'}`}>
           {label}
         </label>
       )}
       <div className="relative group">
         {Icon && (
-          <div className="absolute top-[11px] left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-600 transition-colors">
+          <div className={`absolute top-[11px] left-0 flex items-center pointer-events-none transition-colors ${isDark ? 'pl-0 text-[#666666] group-focus-within:text-[#8b2b2b]' : 'pl-3 text-slate-400 group-focus-within:text-slate-600'}`}>
             <Icon size={18} />
           </div>
         )}
@@ -43,7 +54,7 @@ const Input = forwardRef(({ label, error, icon: Icon, type = 'text', options = [
         )}
       </div>
       {error && (
-        <span className="text-xs text-red-500 font-medium ml-1">
+        <span className={`text-xs font-medium ${isDark ? 'text-[#a33a3a]' : 'text-red-500 ml-1'}`}>
           {error}
         </span>
       )}
