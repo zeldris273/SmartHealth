@@ -28,7 +28,7 @@ const AppContent = () => {
     <AuthProvider>
       <ToastContainer
         position="top-right"
-        theme="dark"
+        theme="light"
         toastClassName="bg-[#1a1a1a]/95 backdrop-blur-xl border border-[#8b2b2b]/30 text-white rounded-xl shadow-2xl"
       />
       <AuthModal />

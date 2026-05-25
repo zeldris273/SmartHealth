@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Input from './Input';
 import Button from './Button';
 import PasswordStrength from './PasswordStrength';
 
-const AuthForm = ({ mode = 'login', onSuccess }) => {
+const AuthForm = ({
+  mode = 'login',
+  onSuccess,
+  onSwitchMode,
+  onRegisterSuccess,
+  stagger = true,
+  variant = 'baymax',
+}) => {
   const isLogin = mode === 'login';
+  const isGlass = variant === 'glass';
+  const inputTheme = isGlass ? 'glass' : 'baymax';
   const { login, register, closeAuthModal } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -92,7 +101,8 @@ const AuthForm = ({ mode = 'login', onSuccess }) => {
 
       if (result.success) {
         closeAuthModal();
-        if (onSuccess) onSuccess();
+        if (onRegisterSuccess) onRegisterSuccess();
+        else if (onSuccess) onSuccess();
         else navigate('/login', { replace: true });
       }
     }
@@ -101,106 +111,124 @@ const AuthForm = ({ mode = 'login', onSuccess }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      className={`w-full ${isGlass ? 'auth-glass-form' : 'space-y-5'} ${stagger ? 'auth-stagger' : ''}`}
+    >
       <Input
-        label="Email"
+        label={isGlass ? 'Email' : 'Email'}
         name="email"
         type="email"
-        placeholder="you@example.com"
+        placeholder={isGlass ? 'Email' : 'you@example.com'}
         value={formData.email}
         onChange={handleChange}
         error={errors.email}
         icon={Mail}
-        theme="dark"
+        theme={inputTheme}
       />
 
-      <div className="relative">
-        <Input
-          label="Password"
-          name="password"
-          type={showPassword ? 'text' : 'password'}
-          placeholder="••••••••"
-          value={formData.password}
-          onChange={handleChange}
-          error={errors.password}
-          icon={Lock}
-          theme="dark"
-        />
-        <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-0 top-[30px] p-2 text-[#666666] transition-colors hover:text-[#8b2b2b]"
-          aria-label={showPassword ? 'Hide password' : 'Show password'}
-        >
-          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
+      <Input
+        label={isGlass ? 'Password' : 'Password'}
+        name="password"
+        type="password"
+        placeholder={isGlass ? 'Password' : '••••••••'}
+        value={formData.password}
+        onChange={handleChange}
+        error={errors.password}
+        icon={Lock}
+        theme={inputTheme}
+        showToggle
+        showPassword={showPassword}
+        onTogglePassword={() => setShowPassword(!showPassword)}
+      />
 
       {!isLogin && (
         <>
-          <PasswordStrength password={formData.password} theme="dark" />
+          <PasswordStrength password={formData.password} theme={inputTheme} />
 
           <Input
-            label="Confirm password"
+            label={isGlass ? 'Confirm Password' : 'Confirm password'}
             name="confirmPassword"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
+            type="password"
+            placeholder={isGlass ? 'Confirm Password' : '••••••••'}
             value={formData.confirmPassword}
             onChange={handleChange}
             error={errors.confirmPassword}
             icon={Lock}
-            theme="dark"
+            theme={inputTheme}
+            showToggle
+            showPassword={showPassword}
+            onTogglePassword={() => setShowPassword(!showPassword)}
           />
 
           <Input
-            label="OTP"
+            label={isGlass ? 'OTP' : 'OTP'}
             name="otp"
             type="text"
-            placeholder="6-digit code"
+            placeholder={isGlass ? 'OTP' : '6-digit code'}
             value={formData.otp}
             onChange={handleChange}
             error={errors.otp}
             icon={ShieldCheck}
             maxLength={6}
-            theme="dark"
+            theme={inputTheme}
           />
         </>
       )}
 
-      {isLogin && (
+      {isLogin && !isGlass && (
         <div className="flex items-center justify-between text-sm">
-          <label className="flex cursor-pointer items-center gap-2 text-[#888888]">
+          <label className="flex cursor-pointer items-center gap-2 text-slate-600">
             <input
               id="remember-me"
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-[#333333] bg-transparent text-[#8b2b2b] focus:ring-[#8b2b2b]/50 focus:ring-offset-0"
+              className="h-4 w-4 cursor-pointer rounded border-rose-200 text-red-500 focus:ring-red-300 focus:ring-offset-0"
             />
             Remember me
           </label>
-          <button
-            type="button"
-            className="text-[#8b2b2b] transition-colors hover:text-[#a33a3a]"
-          >
+          <button type="button" className="font-medium text-red-500 transition-colors hover:text-red-600">
             Forgot password?
           </button>
         </div>
       )}
 
-      <Button type="submit" variant="auth" className="w-full" isLoading={isSubmitting}>
-        {isLogin ? 'Sign in' : 'Create account'}
+      {isLogin && isGlass && (
+        <label className="auth-glass-remember flex cursor-pointer items-center gap-2 text-sm text-[#8f2c24]/80">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4 rounded border-[#8f2c24]/30 text-[#8f2c24] focus:ring-[#8f2c24]/30"
+          />
+          Remember me
+        </label>
+      )}
+
+      <Button
+        type="submit"
+        variant={isGlass ? 'glass' : 'baymax'}
+        className={isGlass ? 'auth-glass-submit w-full' : 'auth-btn-baymax w-full'}
+        isLoading={isSubmitting}
+      >
+        {isLogin ? 'Login' : 'Sign Up'}
       </Button>
 
-      <p className="text-center text-sm text-[#888888]">
-        {isLogin ? "Don't have an account? " : 'Already have an account? '}
-        <Link
-          to={isLogin ? '/register' : '/login'}
-          className="font-medium text-[#8b2b2b] transition-colors hover:text-[#a33a3a]"
-        >
-          {isLogin ? 'Register' : 'Sign in'}
-        </Link>
-      </p>
+      {!isGlass && (
+        <div className="auth-switch-row pt-1 text-center text-sm text-slate-600">
+          <span>{isLogin ? "Don't have an account?" : 'Already have an account?'}</span>
+          {onSwitchMode ? (
+            <button type="button" onClick={onSwitchMode} className="auth-switch-link auth-switch-link--pulse ml-1.5">
+              {isLogin ? 'Register' : 'Sign in'}
+            </button>
+          ) : (
+            <Link to={isLogin ? '/register' : '/login'} className="auth-switch-link ml-1.5">
+              {isLogin ? 'Register' : 'Sign in'}
+            </Link>
+          )}
+        </div>
+      )}
     </form>
   );
 };
