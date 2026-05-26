@@ -27,6 +27,13 @@ class AuthService:
                 detail="Email already exists",
             )
 
+        OTPService.verify_otp(
+            db=db,
+            email=payload.email,
+            otp_code=payload.otp,
+            purpose="register",
+        )
+
         user = User(
             full_name=payload.full_name,
             email=payload.email,

@@ -6,9 +6,10 @@ import { X, Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Input from './Input';
 import Button from './Button';
 import PasswordStrength from './PasswordStrength';
+import { sendOtpAPI } from '../services/auth';
 
 const AuthModal = () => {
-  const { isAuthModalOpen, closeAuthModal, openAuthModal, authModalType, toggleAuthModalType, login, register, isAuthenticated } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, authModalType, login, register, isAuthenticated } = useAuth();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -83,7 +84,7 @@ const AuthModal = () => {
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
   };
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     const email = formData.email.trim();
     const emailValid = /^\S+@\S+\.\S+$/.test(email);
 
@@ -97,13 +98,17 @@ const AuthModal = () => {
 
     setIsSendingOtp(true);
     setErrors(prev => ({ ...prev, email: undefined }));
-    console.log('OTP sent to:', email);
-
-    window.setTimeout(() => {
-      setIsSendingOtp(false);
+    try {
+      const data = await sendOtpAPI({ email, purpose: 'register' });
       setIsOtpSent(true);
-      toast.success(`OTP sent to ${email}`);
-    }, 1000);
+      toast.success(data?.message || `OTP sent to ${email}`);
+    } catch (error) {
+      const errorMessage = error?.detail || error?.message || 'Failed to send OTP';
+      toast.error(errorMessage);
+      setErrors(prev => ({ ...prev, email: errorMessage }));
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   const handleSubmit = async (e) => {

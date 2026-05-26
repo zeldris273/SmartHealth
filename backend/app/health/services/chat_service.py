@@ -36,7 +36,7 @@ class AIResult:
 
 
 def get_ai_provider() -> str:
-    provider = (getattr(settings, "AI_PROVIDER", "gemini") or "gemini").strip().lower()
+    provider = (getattr(settings, "AI_PROVIDER", "openai") or "openai").strip().lower()
     if provider not in {"gemini", "openai"}:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -127,7 +127,8 @@ def _ask_gemini(prompt: str) -> AIResult:
 
 
 def _ask_openai(prompt: str) -> AIResult:
-    if not getattr(settings, "OPENAI_API_KEY", None) or settings.OPENAI_API_KEY == "your-openai-api-key-here":
+    api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
+    if not api_key or api_key == "your-openai-api-key-here":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OPENAI_API_KEY chưa được cấu hình trong file .env.",
@@ -139,7 +140,7 @@ def _ask_openai(prompt: str) -> AIResult:
         )
 
     model_name = get_model_name("openai")
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=api_key)
     response = client.responses.create(model=model_name, input=prompt)
     reply = getattr(response, "output_text", None)
     if not reply:

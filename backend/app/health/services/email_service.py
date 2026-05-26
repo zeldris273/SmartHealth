@@ -37,8 +37,10 @@ class EmailService:
         message.attach(MIMEText(html_content, "html", "utf-8"))
 
         # 3. Tiến hành kết nối "bưu điện" Google để bắn mail đi
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+            server.ehlo()
             server.starttls()  # Kích hoạt mã hóa bảo mật đường truyền TLS
+            server.ehlo()
             server.login(
                 settings.SMTP_USER,
                 settings.SMTP_PASSWORD,

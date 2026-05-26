@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+from pathlib import Path
+
+BACKEND_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 class Settings(BaseSettings):
     # --- CẤU HÌNH CŨ CỦA LẠC ---
@@ -9,10 +12,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     # --- CẤU HÌNH CHATBOT AI ---
     # AI_PROVIDER: gemini hoặc openai
-    AI_PROVIDER: str = "gemini"
+    AI_PROVIDER: str = "openai"
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-2.5-flash"
     OPENAI_API_KEY: Optional[str] = None
+    OPEN_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4.1-mini"
 
     # --- CẤU HÌNH HỆ THỐNG GỬI OTP QUA GMAIL (NÂNG CẤP) ---
@@ -28,7 +32,7 @@ class Settings(BaseSettings):
 
     # --- CONFIGURATION DICT CỦA LẠC ---
     model_config = SettingsConfigDict(
-        env_file=".env", 
+        env_file=(".env", BACKEND_ENV_FILE),
         extra="ignore", 
         case_sensitive=True
     )
