@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import BaymaxLogo from '../components/BaymaxLogo';
-import { useAuth } from '../auth/context/AuthContext';
 
 const stats = [
   { label: 'BMI', value: '22.4', unit: '', status: 'Bình thường' },
@@ -88,7 +87,10 @@ const FeatureWheel = () => {
 const Home = () => {
   const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
-  const { isAuthenticated, logout, openAuthModal } = useAuth();
+
+  const openChatbot = () => {
+    window.dispatchEvent(new Event('open-chatbot'));
+  };
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
@@ -120,7 +122,7 @@ const Home = () => {
             Vào Dashboard
           </button>
           <button
-            onClick={() => navigate('/chatbot')}
+            onClick={openChatbot}
             className="bg-white text-red-500 border-2 border-red-500 rounded-full px-8 py-3 text-sm font-medium hover:bg-red-50 hover:scale-105 transition-all duration-200"
           >
             Chat với Baymax

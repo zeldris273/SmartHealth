@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }) => {
     return () => { mounted = false; };
   }, []);
 
-  const login = async (credentials, rememberMe) => {
+  const login = async (credentials) => {
     setIsLoading(true);
     try {
       const data = await loginAPI(credentials);
@@ -145,17 +145,11 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     setIsLoading(true);
     try {
-      // Use the placeholder API which currently simulates a delay
       const updatedData = await updateProfileAPI(profileData);
-      
-      // Update local state with the new data
-      setUser(prev => ({
-        ...prev,
-        ...profileData // In a real app, you would use updatedData from backend
-      }));
+      setUser(updatedData);
       
       toast.success('Profile updated successfully!');
-      return { success: true };
+      return { success: true, user: updatedData };
     } catch (error) {
       console.error('Update Profile Error:', error);
       const errorMessage = error.detail || error.message || 'Failed to update profile';

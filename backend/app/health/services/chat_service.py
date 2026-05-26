@@ -36,7 +36,7 @@ class AIResult:
 
 
 def get_ai_provider() -> str:
-    provider = (getattr(settings, "AI_PROVIDER", "gemini") or "gemini").strip().lower()
+    provider = (getattr(settings, "AI_PROVIDER", "openai") or "openai").strip().lower()
     if provider not in {"gemini", "openai"}:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -55,6 +55,15 @@ def is_health_related(message: str) -> bool:
     """Kiểm tra nhanh để chặn câu hỏi ngoài phạm vi sức khỏe trước khi gọi AI."""
     normalized = message.strip().lower()
     return any(keyword in normalized for keyword in HEALTH_KEYWORDS)
+
+
+def is_health_related_with_context(message: str, history: list[ChatHistoryItem] | None = None) -> bool:
+    """Cho phep cau hoi follow-up ngan neu lich su gan day dang noi ve suc khoe."""
+    if is_health_related(message):
+        return True
+
+    history = history or []
+    return any(is_health_related(item.content) for item in history[-6:])
 
 
 def get_bmi_category_vi(bmi: float | None) -> str | None:
@@ -127,7 +136,8 @@ def _ask_gemini(prompt: str) -> AIResult:
 
 
 def _ask_openai(prompt: str) -> AIResult:
-    if not getattr(settings, "OPENAI_API_KEY", None) or settings.OPENAI_API_KEY == "your-openai-api-key-here":
+    api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
+    if not api_key or api_key == "your-openai-api-key-here":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OPENAI_API_KEY chưa được cấu hình trong file .env.",
@@ -139,7 +149,7 @@ def _ask_openai(prompt: str) -> AIResult:
         )
 
     model_name = get_model_name("openai")
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=api_key)
     response = client.responses.create(model=model_name, input=prompt)
     reply = getattr(response, "output_text", None)
     if not reply:
@@ -148,7 +158,7 @@ def _ask_openai(prompt: str) -> AIResult:
 
 
 def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> AIResult:
-    if not is_health_related(message):
+    if not is_health_related_with_context(message, history):
         provider = get_ai_provider()
         return AIResult(reply=OFF_TOPIC_RESPONSE, provider=provider, model=get_model_name(provider))
 

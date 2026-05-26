@@ -12,6 +12,7 @@ class UserRegister(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr = Field(..., description="Email hệ thống (Gmail hoặc email HUTECH)")
     password: str = Field(..., min_length=8, max_length=100)
+    otp: str = Field(..., min_length=6, max_length=6, description="Mã OTP gồm 6 chữ số")
 
     @field_validator('email')
     @classmethod

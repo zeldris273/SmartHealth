@@ -17,6 +17,7 @@ from app.health.services.chat_service import (
     build_prompt,
     get_bmi_category_vi,
     is_health_related,
+    is_health_related_with_context,
 )
 
 
@@ -26,6 +27,13 @@ def test_health_related_message_returns_true():
 
 def test_off_topic_message_returns_false():
     assert is_health_related("Hôm nay thời tiết ở Sài Gòn thế nào?") is False
+
+
+def test_follow_up_message_uses_health_context():
+    history = [ChatHistoryItem(role="user", content="toi dang bi sot")]
+
+    assert is_health_related("lam the nao de khac phuc") is False
+    assert is_health_related_with_context("lam the nao de khac phuc", history) is True
 
 
 def test_bmi_category_vi():
@@ -120,3 +128,32 @@ def test_ask_ai_openai_success_with_mocked_client(monkeypatch):
     assert result.provider == "openai"
     assert result.model == "gpt-4.1-mini"
     assert "BMI" in result.reply
+
+
+def test_ask_ai_allows_contextual_health_follow_up(monkeypatch):
+    class FakeResponse:
+        output_text = "Ban nen nghi ngoi, uong du nuoc va theo doi nhiet do."
+
+    class FakeResponses:
+        def create(self, model, input):
+            assert "toi dang bi sot" in input
+            assert "lam the nao de khac phuc" in input
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, api_key):
+            assert api_key == "fake-openai-key"
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr(chat_service.settings, "AI_PROVIDER", "openai")
+    monkeypatch.setattr(chat_service.settings, "OPENAI_API_KEY", "fake-openai-key")
+    monkeypatch.setattr(chat_service.settings, "OPENAI_MODEL", "gpt-4.1-mini")
+    monkeypatch.setattr(chat_service, "OpenAI", FakeClient)
+
+    result = ask_ai(
+        "lam the nao de khac phuc",
+        history=[ChatHistoryItem(role="user", content="toi dang bi sot")],
+    )
+
+    assert result.provider == "openai"
+    assert "uong du nuoc" in result.reply
