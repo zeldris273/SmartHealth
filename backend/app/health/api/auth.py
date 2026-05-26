@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.health.core.dependencies import get_current_user
@@ -9,6 +9,9 @@ from app.health.schemas.user import (
     UserLogin,
     UserRegister,
     UserResponse,
+    ForgotPasswordRequest, 
+    VerifyResetOTPRequest,  
+    ResetPasswordRequest,    
 )
 from app.health.services.auth_service import AuthService
 
@@ -54,3 +57,55 @@ def login(
 #     current_user: User = Depends(get_current_user),
 # ):
 #     return current_user
+
+
+# =================================================================
+# LUỒNG QUÊN MẬT KHẨU (FORGOT / RESET PASSWORD)
+# =================================================================
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Bước 1: Nhận email từ người dùng, kiểm tra hệ thống và gửi mã OTP qua Gmail.
+    """
+    return AuthService.forgot_password(db, payload.email, background_tasks)
+
+
+@router.post(
+    "/verify-reset-otp",
+    status_code=status.HTTP_200_OK,
+)
+def verify_reset_otp(
+    payload: VerifyResetOTPRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Bước 2: Frontend gửi OTP lên để kiểm tra xem hợp lệ và còn hạn hay không.
+    """
+    return AuthService.verify_reset_otp(db, payload.email, payload.otp_code)
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Bước 3: Xác thực lại mã OTP một lần nữa và tiến hành cập nhật mật khẩu mới vào DB.
+    """
+    return AuthService.reset_password(
+        db, 
+        payload.email, 
+        payload.otp_code, 
+        payload.new_password
+    )
