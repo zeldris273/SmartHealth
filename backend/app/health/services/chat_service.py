@@ -57,6 +57,15 @@ def is_health_related(message: str) -> bool:
     return any(keyword in normalized for keyword in HEALTH_KEYWORDS)
 
 
+def is_health_related_with_context(message: str, history: list[ChatHistoryItem] | None = None) -> bool:
+    """Cho phep cau hoi follow-up ngan neu lich su gan day dang noi ve suc khoe."""
+    if is_health_related(message):
+        return True
+
+    history = history or []
+    return any(is_health_related(item.content) for item in history[-6:])
+
+
 def get_bmi_category_vi(bmi: float | None) -> str | None:
     if bmi is None:
         return None
@@ -149,7 +158,7 @@ def _ask_openai(prompt: str) -> AIResult:
 
 
 def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> AIResult:
-    if not is_health_related(message):
+    if not is_health_related_with_context(message, history):
         provider = get_ai_provider()
         return AIResult(reply=OFF_TOPIC_RESPONSE, provider=provider, model=get_model_name(provider))
 
