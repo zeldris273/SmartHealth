@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: smarthealth_db
+    restart: always
+    environment:
+      POSTGRES_DB: smarthealth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres-password-change-me  # Hãy đổi mật khẩu này khi chạy production
+    ports:
+      - "5432:5432"  # Mở cổng để bạn có thể kết nối từ các tool ngoài (vd: DBeaver, PGAdmin) nếu cần
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: smarthealth_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres-password-change-me@db:5432/smarthealth_db
+      - SECRET_KEY=thay-doi-sau-khi-trien-khai-de-bao-mat
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - AI_PROVIDER=openai  # gemini | openai
+      - SMTP_USER=placeholder@example.com  # Cần thiết để tránh lỗi Pydantic validation
+      - SMTP_PASSWORD=placeholder_password # Cần thiết để tránh lỗi Pydantic validation
+      # Thêm các biến môi trường cấu hình gửi mail OTP hoặc AI Chatbot của bạn tại đây nếu cần chạy trong Docker:
+      # - OPENAI_API_KEY=your_openai_key
+      # - GEMINI_API_KEY=your_gemini_key
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # URL của API Backend khi trình duyệt gọi từ ngoài vào host
+        - VITE_API_URL=http://192.168.100.110:8000
+    container_name: smarthealth_frontend
+    restart: always
+    ports:
+      - "5173:80"  # Map cổng 80 của Nginx ra cổng 5173 của máy local để truy cập http://localhost:5173
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:  # Khai báo volume giúp dữ liệu PostgreSQL không bị mất khi restart container
