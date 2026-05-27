@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 try:
-    import google.generativeai as genai
-except ImportError:  # Cho phép chạy unit test trước khi cài google-generativeai
-    genai = None
-
-try:
     from openai import OpenAI
-except ImportError:  # Cho phép dùng Gemini khi chưa cài openai
+except ImportError:
     OpenAI = None
 
 from fastapi import HTTPException, status
@@ -37,18 +32,17 @@ class AIResult:
 
 def get_ai_provider() -> str:
     provider = (getattr(settings, "AI_PROVIDER", "openai") or "openai").strip().lower()
-    if provider not in {"gemini", "openai"}:
+    if provider != "openai":
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI_PROVIDER chỉ được là 'gemini' hoặc 'openai'.",
+            detail="Hiện tại hệ thống chỉ hỗ trợ AI_PROVIDER là 'openai'.",
         )
     return provider
 
 
 def get_model_name(provider: str) -> str:
-    if provider == "openai":
-        return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
-    return getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash") or "gemini-2.5-flash"
+    # Mặc định dùng OpenAI vì Gemini đã bị loại bỏ
+    return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
 
 
 def is_health_related(message: str) -> bool:
@@ -113,35 +107,17 @@ Câu hỏi hiện tại:
 """.strip()
 
 
-def _ask_gemini(prompt: str) -> AIResult:
-    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "your-gemini-api-key-here":
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY chưa được cấu hình trong file .env.",
-        )
-    if genai is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Chưa cài thư viện google-generativeai. Hãy chạy: pip install -r requirements.txt",
-        )
-
-    model_name = get_model_name("gemini")
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name)
-    response = model.generate_content(prompt)
-    reply = getattr(response, "text", None)
-    if not reply:
-        raise ValueError("Gemini không trả về nội dung phản hồi.")
-    return AIResult(reply=reply.strip(), provider="gemini", model=model_name)
-
-
 def _ask_openai(prompt: str) -> AIResult:
-    api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
-    if not api_key or api_key == "your-openai-api-key-here":
+    # Thử cả hai variant của API KEY
+    api_key = (getattr(settings, "OPENAI_API_KEY", None) or 
+               getattr(settings, "OPEN_API_KEY", None))
+    
+    if not api_key or api_key in ["your-openai-api-key-here", ""]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OPENAI_API_KEY chưa được cấu hình trong file .env.",
         )
+    
     if OpenAI is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -150,10 +126,21 @@ def _ask_openai(prompt: str) -> AIResult:
 
     model_name = get_model_name("openai")
     client = OpenAI(api_key=api_key)
-    response = client.responses.create(model=model_name, input=prompt)
-    reply = getattr(response, "output_text", None)
+    
+    # Sử dụng chuẩn Chat Completion của OpenAI v1.x với timeout 20s
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+        timeout=20.0,
+    )
+    
+    reply = response.choices[0].message.content
     if not reply:
         raise ValueError("OpenAI không trả về nội dung phản hồi.")
+    
     return AIResult(reply=reply.strip(), provider="openai", model=model_name)
 
 
@@ -166,9 +153,8 @@ def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem
     provider = get_ai_provider()
 
     try:
-        if provider == "openai":
-            return _ask_openai(prompt)
-        return _ask_gemini(prompt)
+        # Hệ thống giờ đây chỉ hỗ trợ OpenAI
+        return _ask_openai(prompt)
     except HTTPException:
         raise
     except Exception as exc:
@@ -176,13 +162,3 @@ def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Không thể gọi {provider.upper()} API: {exc}",
         )
-
-
-# Giữ tên hàm cũ để không làm hỏng code/test cũ nếu có import ask_gemini.
-def ask_gemini(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> str:
-    old_provider = getattr(settings, "AI_PROVIDER", "gemini")
-    try:
-        settings.AI_PROVIDER = "gemini"
-        return ask_ai(message=message, bmi=bmi, history=history).reply
-    finally:
-        settings.AI_PROVIDER = old_provider

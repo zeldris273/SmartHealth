@@ -100,9 +100,9 @@ def save_chat_pair(
 @router.post(
     "/chat",
     response_model=ChatResponse,
-    summary="Chatbot tư vấn sức khỏe bằng Gemini hoặc OpenAI",
+    summary="Chatbot tư vấn sức khỏe bằng OpenAI",
     description=(
-        "Nhận câu hỏi sức khỏe từ người dùng và trả lời bằng AI provider được chọn trong .env. "
+        "Nhận câu hỏi sức khỏe từ người dùng và trả lời bằng OpenAI. "
         "Nếu request có Bearer token hợp lệ, API có thể tự đọc BMI mới nhất và lưu lịch sử chat."
     ),
     status_code=status.HTTP_200_OK,
@@ -112,6 +112,9 @@ def chat_with_ai(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ) -> ChatResponse:
+    print(f"--- Nhận request chat từ user: {current_user.email if current_user else 'Anonymous'}")
+    print(f"--- Nội dung: {request.message[:50]}...")
+    
     session_id = request.session_id or uuid4().hex
     bmi = request.bmi
     history = request.history

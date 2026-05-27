@@ -2,7 +2,7 @@
 
 ## Tính năng đã bổ sung
 
-- Chọn AI provider bằng `.env`: `gemini` hoặc `openai`.
+- Sử dụng OpenAI để tư vấn sức khỏe.
 - Chọn model bằng `.env`, không cần sửa code.
 - `POST /health/chat` trả lời câu hỏi sức khỏe.
 - Nếu người dùng gửi Bearer token hợp lệ:
@@ -19,21 +19,7 @@ Copy file mẫu:
 copy .env.example .env
 ```
 
-### Dùng Gemini
-
-```env
-AI_PROVIDER=gemini
-GEMINI_API_KEY=your-gemini-api-key-here
-GEMINI_MODEL=gemini-2.5-flash
-```
-
-Muốn đổi sang Pro:
-
-```env
-GEMINI_MODEL=gemini-2.5-pro
-```
-
-### Dùng OpenAI
+### Cấu hình OpenAI
 
 ```env
 AI_PROVIDER=openai
@@ -101,8 +87,8 @@ Response có dạng:
 ```json
 {
   "reply": "...",
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
   "session_id": "...",
   "bmi": 27.5,
   "saved": true

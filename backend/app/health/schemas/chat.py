@@ -34,7 +34,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str = Field(..., description="Câu trả lời từ chatbot")
-    provider: str = Field(..., description="AI provider đang dùng: gemini hoặc openai")
+    provider: str = Field(..., description="AI provider đang dùng: openai")
     model: str = Field(..., description="Tên model đang dùng")
     session_id: str = Field(..., description="Mã phiên chat")
     bmi: float | None = Field(None, description="BMI chatbot đã dùng trong prompt, nếu có")
