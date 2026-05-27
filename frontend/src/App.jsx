@@ -9,8 +9,8 @@ import Login from './auth/pages/Login';
 import Register from './auth/pages/Register';
 import Home from './pages/Home';
 import Dashboard from './pages/dashboard/Dashboard';
-import Chatbot from './pages/chatbot/Chatbot';
 import Header from './components/Header';
+import ChatbotWidget from './components/chatbot/ChatbotWidget';
 
 const App = () => {
   return (
@@ -38,9 +38,9 @@ const AppContent = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/chatbot" element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       </Routes>
+      {!hideHeader && <ChatbotWidget />}
     </AuthProvider>
   );
 };

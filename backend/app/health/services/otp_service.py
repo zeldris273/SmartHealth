@@ -1,4 +1,6 @@
 import random
+import logging
+import smtplib
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, BackgroundTasks
@@ -6,6 +8,8 @@ from fastapi import HTTPException, status, BackgroundTasks
 from app.health.core.config import settings
 from app.health.models.email_otp import EmailOTP
 from app.health.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 
 class OTPService:
     @staticmethod
@@ -18,7 +22,7 @@ class OTPService:
         db: Session,
         email: str,
         purpose: str,
-        background_tasks: BackgroundTasks  # Thêm BackgroundTasks để xử lý gửi mail ngầm
+        background_tasks: BackgroundTasks | None = None
     ) -> dict:
         # 1. KIỂM TRA COOLDOWN (Chặn spam gửi lại mã quá nhanh)
         last_otp = (
@@ -52,8 +56,24 @@ class OTPService:
         db.add(otp)
         db.commit()
 
-        # 3. GỬI MAIL BẤT ĐỒNG BỘ (Chuẩn Senior giúp API phản hồi trong 0.05s)
-        background_tasks.add_task(EmailService.send_otp_email, email, otp_code)
+        try:
+            EmailService.send_otp_email(email, otp_code)
+        except smtplib.SMTPAuthenticationError as exc:
+            logger.exception("SMTP authentication failed for user %s", settings.SMTP_USER)
+            db.delete(otp)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Gmail từ chối đăng nhập SMTP. Vui lòng kiểm tra SMTP_USER và tạo lại Gmail App Password.",
+            ) from exc
+        except Exception as exc:
+            logger.exception("Failed to send OTP email to %s using SMTP host %s", email, settings.SMTP_HOST)
+            db.delete(otp)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Không gửi được OTP qua email. Vui lòng kiểm tra cấu hình SMTP hoặc thử lại sau.",
+            ) from exc
 
         return {"message": "Mã OTP đã được gửi thành công qua Email của bạn."}
 

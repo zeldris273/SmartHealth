@@ -18,6 +18,15 @@ export const registerAPI = async (userData) => {
   }
 };
 
+export const sendOtpAPI = async ({ email, purpose = 'register' }) => {
+  try {
+    const response = await api.post('/otp/send', { email, purpose });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to send OTP');
+  }
+};
+
 export const getProfileAPI = async () => {
   try {
     const response = await api.get('/auth/me');
@@ -27,16 +36,11 @@ export const getProfileAPI = async () => {
   }
 };
 
-// Placeholder for future backend integration
 export const updateProfileAPI = async (profileData) => {
-  // TODO: Replace with real API call when backend is ready
-  // const response = await api.patch('/users/me', profileData);
-  // return response.data;
-  
-  // For now, simulate network delay and return the data as if successful
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true, ...profileData });
-    }, 800);
-  });
+  try {
+    const response = await api.patch('/users/me', profileData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to update profile');
+  }
 };

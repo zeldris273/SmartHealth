@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -8,33 +8,31 @@ import {
 } from 'lucide-react';
 
 const Profile = () => {
-  const { user, logout, updateProfile, isLoading } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
-    phone: '',
-    dob: '',
-    citizenId: '',
+    phone_number: '',
+    date_of_birth: '',
+    national_id: '',
     address: '',
     avatar: ''
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize form with existing user data when editing starts
-  useEffect(() => {
-    if (user && isEditing) {
-      setFormData({
-        full_name: user.full_name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        dob: user.dob || '',
-        citizenId: user.citizenId || '',
-        address: user.address || '',
-        avatar: user.avatar || ''
-      });
-    }
-  }, [user, isEditing]);
+  const startEditing = () => {
+    setFormData({
+      full_name: user?.full_name || '',
+      email: user?.email || '',
+      phone_number: user?.phone_number || '',
+      date_of_birth: user?.date_of_birth || '',
+      national_id: user?.national_id || '',
+      address: user?.address || '',
+      avatar: user?.avatar || ''
+    });
+    setIsEditing(true);
+  };
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -53,11 +51,14 @@ const Profile = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // TODO: Backend Team Connection point
-    // The updateProfile function currently simulates a successful response.
-    // Replace logic in services/auth.js and ensure avatar upload is handled 
-    // properly (e.g. Multipart form data or cloud storage upload).
-    const result = await updateProfile(formData);
+    const payload = {
+      full_name: formData.full_name,
+      phone_number: formData.phone_number || null,
+      date_of_birth: formData.date_of_birth || null,
+      national_id: formData.national_id || null,
+      address: formData.address || null,
+    };
+    const result = await updateProfile(payload);
     setIsSaving(false);
     if (result.success) {
       setIsEditing(false);
@@ -103,7 +104,7 @@ const Profile = () => {
             </div>
             <div className="flex gap-3 w-full sm:w-auto">
               {!isEditing && (
-                <Button className="flex-1 sm:flex-none" onClick={() => setIsEditing(true)}>
+                <Button className="flex-1 sm:flex-none" onClick={startEditing}>
                   <Settings size={18} className="mr-2" />
                   Edit Profile
                 </Button>
@@ -182,26 +183,26 @@ const Profile = () => {
                       />
                       <Input
                         label="Phone Number"
-                        name="phone"
+                        name="phone_number"
                         icon={Phone}
-                        value={formData.phone}
+                        value={formData.phone_number}
                         onChange={handleChange}
                         placeholder="Enter phone number"
                       />
                       <Input
                         label="Date of Birth"
-                        name="dob"
+                        name="date_of_birth"
                         type="date"
                         icon={Calendar}
-                        value={formData.dob}
+                        value={formData.date_of_birth}
                         onChange={handleChange}
                         placeholder="YYYY-MM-DD"
                       />
                       <Input
                         label="Citizen ID / CCCD"
-                        name="citizenId"
+                        name="national_id"
                         icon={CreditCard}
-                        value={formData.citizenId}
+                        value={formData.national_id}
                         onChange={handleChange}
                         placeholder="Enter ID number"
                       />
@@ -242,23 +243,23 @@ const Profile = () => {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Phone Number</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.phone ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <Phone size={16} className={user?.phone ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.phone || 'Not provided'}
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.phone_number ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <Phone size={16} className={user?.phone_number ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.phone_number || 'Not provided'}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Date of Birth</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.dob ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <Calendar size={16} className={user?.dob ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.dob || 'Not provided'}
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.date_of_birth ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <Calendar size={16} className={user?.date_of_birth ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.date_of_birth || 'Not provided'}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Citizen ID / CCCD</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.citizenId ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <CreditCard size={16} className={user?.citizenId ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.citizenId || 'Not provided'}
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.national_id ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <CreditCard size={16} className={user?.national_id ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.national_id || 'Not provided'}
                         </p>
                       </div>
                       <div className="sm:col-span-2">

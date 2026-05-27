@@ -7,7 +7,7 @@ SmartHealth is a full-stack health tracking and wellness assistant inspired by B
 - Frontend: React 19, Vite, Tailwind CSS 4, React Router, Axios, Recharts
 - Backend: FastAPI, SQLAlchemy, Pydantic, JWT authentication
 - Database: PostgreSQL
-- AI integration: Google Gemini API
+- AI integration: Google OPEN AI API
 - Default local URLs:
   - Frontend: `http://localhost:5173`
   - Backend API: `http://localhost:8000`
@@ -23,7 +23,7 @@ SmartHealth is a full-stack health tracking and wellness assistant inspired by B
 - Daily calorie estimation
 - Personalized health tips
 - Email OTP send and verify flow
-- Health chatbot backend powered by Google Gemini
+- Health chatbot backend powered by Google OPEN AI
 
 ## Project Structure
 
@@ -94,7 +94,7 @@ DATABASE_URL=postgresql://postgres:your-password@localhost:5432/smarthealth
 SECRET_KEY=replace-with-a-secure-secret
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
-GEMINI_API_KEY=your-gemini-api-key
+OPEN_API_KEY=your-open-api-key
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -107,7 +107,7 @@ OTP_RESEND_COOLDOWN_SECONDS=60
 Notes:
 
 - `DATABASE_URL` should point to a PostgreSQL database that already exists.
-- `GEMINI_API_KEY` is required for the chatbot backend.
+- `OPEN_API_KEY` is required for the chatbot backend.
 - `SMTP_USER` and `SMTP_PASSWORD` are required for email OTP delivery.
 - Every backend command after setup should be run with the virtual environment activated.
 
@@ -202,7 +202,7 @@ pytest app/health/tests/test_chatbot.py -v
 
 ## Suggested Next Improvements
 
-- Connect the frontend chatbot to the Gemini backend API
+- Connect the frontend chatbot to the OPEN AI backend API
 - Clean up `backend/requirements.txt`
 - Add database migrations
 - Add deployment instructions for Docker or cloud hosting
