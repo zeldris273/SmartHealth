@@ -26,7 +26,11 @@ const AppContent = () => {
 
   return (
     <AuthProvider>
-      <ToastContainer position="top-right" theme="light" toastClassName="bg-white/80 backdrop-blur-xl border border-slate-200 text-slate-900 rounded-xl shadow-2xl" />
+      <ToastContainer
+        position="top-right"
+        theme="light"
+        toastClassName="bg-[#1a1a1a]/95 backdrop-blur-xl border border-[#8b2b2b]/30 text-white rounded-xl shadow-2xl"
+      />
       <AuthModal />
       {!hideHeader && <Header />}
       <Routes>
