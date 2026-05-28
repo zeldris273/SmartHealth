@@ -32,12 +32,39 @@ const AuthForm = ({
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
   useEffect(() => {
     setFormData({ email: '', password: '', confirmPassword: '', otp: '' });
     setErrors({});
     setShowPassword(false);
   }, [mode]);
+
+  const handleSendOtp = async () => {
+    if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
+      setErrors(prev => ({ ...prev, email: 'Nhập email hợp lệ trước' }));
+      return;
+    }
+    setIsSendingOtp(true);
+    try {
+      await fetch('http://127.0.0.1:8000/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+      setOtpCooldown(60);
+      const timer = setInterval(() => {
+        setOtpCooldown(prev => {
+          if (prev <= 1) { clearInterval(timer); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+    }
+    setIsSendingOtp(false);
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -116,7 +143,7 @@ const AuthForm = ({
       className={`w-full ${isGlass ? 'auth-glass-form' : 'space-y-5'} ${stagger ? 'auth-stagger' : ''}`}
     >
       <Input
-        label={isGlass ? 'Email' : 'Email'}
+        label="Email"
         name="email"
         type="email"
         placeholder={isGlass ? 'Email' : 'you@example.com'}
@@ -128,7 +155,7 @@ const AuthForm = ({
       />
 
       <Input
-        label={isGlass ? 'Password' : 'Password'}
+        label="Password"
         name="password"
         type="password"
         placeholder={isGlass ? 'Password' : '••••••••'}
@@ -147,7 +174,7 @@ const AuthForm = ({
           <PasswordStrength password={formData.password} theme={inputTheme} />
 
           <Input
-            label={isGlass ? 'Confirm Password' : 'Confirm password'}
+            label="Confirm Password"
             name="confirmPassword"
             type="password"
             placeholder={isGlass ? 'Confirm Password' : '••••••••'}
@@ -161,18 +188,30 @@ const AuthForm = ({
             onTogglePassword={() => setShowPassword(!showPassword)}
           />
 
-          <Input
-            label={isGlass ? 'OTP' : 'OTP'}
-            name="otp"
-            type="text"
-            placeholder={isGlass ? 'OTP' : '6-digit code'}
-            value={formData.otp}
-            onChange={handleChange}
-            error={errors.otp}
-            icon={ShieldCheck}
-            maxLength={6}
-            theme={inputTheme}
-          />
+<div className="space-y-1">
+  <label className="text-xs font-medium uppercase tracking-wide text-slate-500">OTP</label>
+  <div className="relative">
+    <ShieldCheck className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    <input
+      name="otp"
+      type="text"
+      placeholder="6-digit code"
+      value={formData.otp}
+      onChange={handleChange}
+      maxLength={6}
+      className="w-full rounded-2xl border border-rose-100 bg-rose-50/50 py-3 pl-9 pr-24 text-sm text-slate-700 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
+    />
+    <button
+      type="button"
+      onClick={handleSendOtp}
+      disabled={isSendingOtp || otpCooldown > 0}
+      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-red-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
+    >
+      {isSendingOtp ? '...' : otpCooldown > 0 ? `${otpCooldown}s` : 'Gửi OTP'}
+    </button>
+  </div>
+  {errors.otp && <p className="text-xs text-red-500">{errors.otp}</p>}
+</div>
         </>
       )}
 
