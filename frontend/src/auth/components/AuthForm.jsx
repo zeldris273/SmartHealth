@@ -79,26 +79,33 @@ const AuthForm = ({
 
   const validate = () => {
     const newErrors = {};
+
     if (!formData.email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = 'Email là bắt buộc';
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email address';
+      newErrors.email = 'Địa chỉ email không hợp lệ';
+    } else if (!isLogin && !/^[a-zA-Z0-9._%+-]+@(gmail\.com|hutech\.edu\.vn)$/.test(formData.email)) {
+      newErrors.email = 'Hệ thống chỉ chấp nhận email @gmail.com hoặc @hutech.edu.vn';
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (!isLogin && formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+      newErrors.password = 'Mật khẩu là bắt buộc';
+    } else if (!isLogin) {
+      // Kiểm tra mật khẩu mạnh (giống backend)
+      const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!strongPasswordRegex.test(formData.password)) {
+        newErrors.password = 'Mật khẩu phải có ít nhất 8 ký tự, 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@$!%*?&)';
+      }
     }
 
     if (!isLogin) {
       if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
+        newErrors.confirmPassword = 'Mật khẩu không khớp';
       }
       if (!formData.otp) {
-        newErrors.otp = 'OTP is required';
-      } else if (formData.otp.length < 6) {
-        newErrors.otp = 'Invalid OTP format';
+        newErrors.otp = 'OTP là bắt buộc';
+      } else if (formData.otp.length !== 6) {
+        newErrors.otp = 'OTP phải có chính xác 6 chữ số';
       }
     }
 
@@ -135,9 +142,7 @@ const AuthForm = ({
         else navigate(from, { replace: true });
       }
     } else {
-      const username = formData.email.split('@')[0];
       const result = await register({
-        fullName: username,
         email: formData.email,
         password: formData.password,
         otp: formData.otp,
@@ -163,7 +168,7 @@ const AuthForm = ({
         label="Email"
         name="email"
         type="email"
-        placeholder={isGlass ? 'Email' : 'you@example.com'}
+        placeholder={isGlass ? "Email" : "you@example.com"}
         value={formData.email}
         onChange={handleChange}
         error={errors.email}
@@ -175,7 +180,7 @@ const AuthForm = ({
         label="Password"
         name="password"
         type="password"
-        placeholder={isGlass ? 'Password' : '••••••••'}
+        placeholder={isGlass ? "Password" : "••••••••"}
         value={formData.password}
         onChange={handleChange}
         error={errors.password}
