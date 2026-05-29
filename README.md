@@ -1,154 +1,186 @@
-# SmartHealth
+<div align="center">
 
-SmartHealth is a full-stack health tracking and wellness assistant inspired by Baymax. The project includes a React/Vite frontend and a FastAPI backend, with features for authentication, BMI tracking, calorie calculation, health tips, OTP verification, and an AI-powered health chatbot.
+# 🤖 SmartHealth
 
-## Overview
+**Your friendly AI-powered health companion — inspired by Baymax**
 
-- **Frontend:** React 19, Vite, Tailwind CSS 4, React Router 7, Axios, Recharts
-- **Backend:** FastAPI, SQLAlchemy, Pydantic v2, JWT authentication, Alembic migrations
-- **Database:** PostgreSQL (Production/Docker) or SQLite (Local Development)
-- **AI Integration:** OpenAI API (GPT-4o-mini/GPT-4.1-mini)
-- **Default local URLs:**
-  - Frontend: `http://localhost:5173`
-  - Backend API: `http://localhost:8000`
-  - Swagger Docs: `http://localhost:8000/docs`
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.11%2F3.12-3776AB?style=flat-square&logo=python)](https://www.python.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat-square&logo=postgresql)](https://www.postgresql.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)](https://www.docker.com)
 
-## Main Features
+[Features](#-features) · [Tech Stack](#-tech-stack) · [Getting Started](#-getting-started) · [Docker](#-docker-deployment) · [Testing](#-testing)
 
-- **User Authentication:** Registration, Login, and JWT-based session management.
-- **Profile Management:** Update profile fields and basic role-based access control.
-- **Health Tools:**
-  - BMI calculation and BMI history tracking.
-  - Weight history dashboard with Recharts.
-  - Daily calorie estimation based on physical activity.
-  - Personalized health tips.
-- **Security:**
-  - Email OTP verification for account security.
-  - Protected routes on the frontend.
-- **AI Chatbot:** Health-focused chatbot powered by OpenAI, providing supportive and professional advice.
+</div>
 
-## Project Structure
+---
 
-```text
+## ✨ Features
+
+| Feature | Description |
+|---|---|
+| 🔐 **Authentication** | Register, login, and JWT-based session management |
+| 👤 **Profile Management** | Update profile fields with role-based access control |
+| 📊 **BMI Tracker** | Calculate BMI and visualize history with charts |
+| ⚖️ **Weight Dashboard** | Track weight over time with interactive Recharts graphs |
+| 🔥 **Calorie Calculator** | Daily calorie estimation based on activity level |
+| 💡 **Health Tips** | Personalized tips based on your health data |
+| 📧 **OTP Verification** | Email-based one-time password for account security |
+| 🤖 **AI Chatbot** | Health-focused assistant powered by OpenAI GPT-4o |
+
+---
+
+## 🛠 Tech Stack
+
+**Frontend**
+- React 19 + Vite · Tailwind CSS 4 · React Router 7 · Axios · Recharts
+
+**Backend**
+- FastAPI · SQLAlchemy · Pydantic v2 · JWT Auth · Alembic
+
+**Database**
+- PostgreSQL 14+ (production) · SQLite (local dev)
+
+**AI & Infrastructure**
+- OpenAI API (GPT-4o-mini) · Docker Compose
+
+---
+
+## 📁 Project Structure
+
+```
 SmartHealth/
 ├── backend/
-│   ├── alembic/            # Database migration scripts
+│   ├── alembic/                # Database migration scripts
 │   ├── app/health/
-│   │   ├── api/            # API routes (FastAPI routers)
-│   │   ├── core/           # Config, security, and business logic helpers
-│   │   ├── models/         # SQLAlchemy database models
-│   │   ├── schemas/        # Pydantic validation schemas
-│   │   ├── services/       # Service layer (business logic)
-│   │   ├── templates/      # Email templates (OTP, etc.)
-│   │   └── tests/          # Pytest suite
-│   ├── main.py             # FastAPI entrypoint
-│   ├── database.py        # DB engine, session, and Base setup
+│   │   ├── api/                # FastAPI route handlers
+│   │   ├── core/               # Config, security & business logic
+│   │   ├── models/             # SQLAlchemy database models
+│   │   ├── schemas/            # Pydantic validation schemas
+│   │   ├── services/           # Service / business logic layer
+│   │   ├── templates/          # Email templates (OTP, etc.)
+│   │   └── tests/              # Pytest test suite
+│   ├── main.py                 # FastAPI entrypoint
+│   ├── database.py             # DB engine, session & Base setup
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── auth/           # Auth UI, context, and services
-│   │   ├── components/     # Reusable UI components (Dashboard, Chatbot, etc.)
-│   │   ├── pages/          # Application pages (Home, Dashboard)
-│   │   └── services/       # API client (Axios)
+│   │   ├── auth/               # Auth UI, context & services
+│   │   ├── components/         # Reusable UI components
+│   │   ├── pages/              # Application pages
+│   │   └── services/           # Axios API client
 │   ├── package.json
 │   └── vite.config.js
 ├── docker-compose.yml
 └── README.md
 ```
 
-## Requirements
+---
 
-- Node.js 20+
-- npm 10+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 20+ & npm 10+
 - Python 3.11 or 3.12
-- PostgreSQL 14+ (or SQLite for local development)
-- Docker & Docker Compose (optional for local deployment)
+- PostgreSQL 14+ *(or SQLite for local dev)*
+- Docker & Docker Compose *(optional)*
 
-## Backend Setup
+---
 
-1. **Move into the `backend` folder and create a virtual environment:**
-   ```powershell
-   cd backend
-   python -m venv venv
-   ```
+### Backend Setup
 
-2. **Activate the virtual environment:**
-   ```powershell
-   # Windows
-   .\venv\Scripts\Activate.ps1
-   # macOS/Linux
-   source venv/bin/activate
-   ```
+```bash
+# 1. Navigate to backend and create virtual environment
+cd backend
+python -m venv venv
 
-3. **Install dependencies:**
-   ```powershell
-   pip install -r requirements.txt
-   ```
+# 2. Activate the virtual environment
+source venv/bin/activate          # macOS / Linux
+.\venv\Scripts\Activate.ps1       # Windows
 
-4. **Environment Setup:**
-   Copy `.env.example` to `.env` and update the values:
-   ```powershell
-   cp .env.example .env
-   ```
+# 3. Install dependencies
+pip install -r requirements.txt
 
-   Key environment variables:
-   ```env
-   DATABASE_URL=postgresql://postgres:password@localhost:5432/smarthealth
-   SECRET_KEY=your-secure-secret-key
-   OPENAI_API_KEY=your-openai-api-key
-   SMTP_USER=your-email@gmail.com
-   SMTP_PASSWORD=your-app-password
-   ```
+# 4. Configure environment variables
+cp .env.example .env
+```
 
-5. **Database Migrations:**
-   Apply migrations to set up your database schema:
-   ```powershell
-   alembic upgrade head
-   ```
+Edit `.env` with your credentials:
 
-6. **Run the Backend:**
-   ```powershell
-   uvicorn main:app --reload
-   ```
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/smarthealth
+SECRET_KEY=your-secure-secret-key
+OPENAI_API_KEY=your-openai-api-key
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+```
 
-## Frontend Setup
+```bash
+# 5. Run database migrations
+alembic upgrade head
 
-1. **Move into the `frontend` folder:**
-   ```powershell
-   cd frontend
-   ```
+# 6. Start the backend server
+uvicorn main:app --reload
+```
 
-2. **Install dependencies:**
-   ```powershell
-   npm install
-   ```
+> 📖 API docs available at `http://localhost:8000/docs`
 
-3. **Run the Frontend:**
-   ```powershell
-   npm run dev
-   ```
+---
 
-## Docker Deployment
+### Frontend Setup
 
-You can run the entire stack (Frontend, Backend, and Database) using Docker Compose:
+```bash
+# 1. Navigate to frontend
+cd frontend
 
-```powershell
+# 2. Install dependencies
+npm install
+
+# 3. Start the dev server
+npm run dev
+```
+
+> 🌐 App available at `http://localhost:5173`
+
+---
+
+## 🐳 Docker Deployment
+
+Run the entire stack — frontend, backend, and database — with a single command:
+
+```bash
 docker-compose up --build
 ```
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Swagger Docs | http://localhost:8000/docs |
 
-## Testing
+---
 
-Backend tests are located in `backend/app/health/tests`.
+## 🧪 Testing
 
-```powershell
+```bash
 cd backend
-# Ensure venv is active
+
+# Make sure your virtual environment is active
 pytest
 ```
 
-## Inspiration
+Tests are located in `backend/app/health/tests/`.
 
-The product tone and interface direction are inspired by Baymax, aiming for a friendly, approachable, and supportive health companion experience.
+---
+
+## 💙 Inspiration
+
+SmartHealth's tone and interface are inspired by **Baymax** — friendly, approachable, and genuinely caring. The goal is to feel less like a clinical tool and more like a supportive companion on your wellness journey.
+
+---
+
+<div align="center">
+  Made with ❤️ and a healthy dose of 🤖
+</div>

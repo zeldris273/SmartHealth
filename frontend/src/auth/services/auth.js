@@ -29,7 +29,7 @@ export const sendOtpAPI = async ({ email, purpose = 'register' }) => {
 
 export const getProfileAPI = async () => {
   try {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/users/me');
     return response.data; // backend returns UserResponse
   } catch (error) {
     throw error.response?.data || new Error('Failed to fetch profile');

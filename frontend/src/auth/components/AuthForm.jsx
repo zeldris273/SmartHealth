@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, ShieldCheck } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
+import { sendOtpAPI } from '../services/auth';
 import Input from './Input';
 import Button from './Button';
 import PasswordStrength from './PasswordStrength';
@@ -36,10 +38,19 @@ const AuthForm = ({
   const [otpCooldown, setOtpCooldown] = useState(0);
 
   useEffect(() => {
-    setFormData({ email: '', password: '', confirmPassword: '', otp: '' });
+    const savedEmail = localStorage.getItem('remembered_email');
+    setFormData({ 
+      email: isLogin && savedEmail ? savedEmail : '', 
+      password: '', 
+      confirmPassword: '', 
+      otp: '' 
+    });
+    if (isLogin && savedEmail) {
+      setRememberMe(true);
+    }
     setErrors({});
     setShowPassword(false);
-  }, [mode]);
+  }, [mode, isLogin]);
 
   const handleSendOtp = async () => {
     if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
@@ -48,11 +59,8 @@ const AuthForm = ({
     }
     setIsSendingOtp(true);
     try {
-      await fetch('http://127.0.0.1:8000/otp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email }),
-      });
+      const response = await sendOtpAPI({ email: formData.email, purpose: 'register' });
+      toast.success(response.message || 'Mã OTP đã được gửi thành công!');
       setOtpCooldown(60);
       const timer = setInterval(() => {
         setOtpCooldown(prev => {
@@ -62,6 +70,9 @@ const AuthForm = ({
       }, 1000);
     } catch (err) {
       console.error(err);
+      const errorMessage = err.detail || err.message || 'Không thể gửi OTP. Vui lòng thử lại.';
+      toast.error(errorMessage);
+      setErrors(prev => ({ ...prev, otp: errorMessage }));
     }
     setIsSendingOtp(false);
   };
@@ -108,6 +119,12 @@ const AuthForm = ({
     setIsSubmitting(true);
 
     if (isLogin) {
+      if (rememberMe) {
+        localStorage.setItem('remembered_email', formData.email);
+      } else {
+        localStorage.removeItem('remembered_email');
+      }
+
       const result = await login(
         { email: formData.email, password: formData.password },
         rememberMe

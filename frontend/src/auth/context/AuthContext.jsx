@@ -14,17 +14,22 @@ export const AuthProvider = ({ children }) => {
   const [authModalType, setAuthModalType] = useState('login'); // 'login' or 'register'
 
   const getStoredToken = () => {
-    return localStorage.getItem('token') || localStorage.getItem('access_token');
+    return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
   };
 
-  const saveToken = (token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('access_token', token);
+  const saveToken = (token, rememberMe = true) => {
+    if (rememberMe) {
+      localStorage.setItem('access_token', token);
+      sessionStorage.removeItem('access_token');
+    } else {
+      sessionStorage.setItem('access_token', token);
+      localStorage.removeItem('access_token');
+    }
   };
 
   const clearStoredTokens = () => {
-    localStorage.removeItem('token');
     localStorage.removeItem('access_token');
+    sessionStorage.removeItem('access_token');
   };
 
   const openAuthModal = (type = 'login') => {
@@ -49,7 +54,8 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      saveToken(token);
+      // If token exists, we don't need to re-save it here as it would default to localStorage
+      // We just need to verify it's valid
 
       try {
         const userProfile = await getProfileAPI();
@@ -77,7 +83,7 @@ export const AuthProvider = ({ children }) => {
     return () => { mounted = false; };
   }, []);
 
-  const login = async (credentials) => {
+  const login = async (credentials, rememberMe = false) => {
     setIsLoading(true);
     try {
       const data = await loginAPI(credentials);
@@ -87,7 +93,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Login response did not include an access token');
       }
 
-      saveToken(token);
+      saveToken(token, rememberMe);
       const userProfile = await getProfileAPI();
 
       if (!userProfile?.id) {
