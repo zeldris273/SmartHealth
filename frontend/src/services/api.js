@@ -20,4 +20,16 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor - handle 401 errors gently
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Don't automatically redirect on 401s - let AuthContext handle it
+    if (error?.response?.status === 401) {
+      console.log('401 Unauthorized error received');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
