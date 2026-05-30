@@ -5,17 +5,14 @@ from pathlib import Path
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 class Settings(BaseSettings):
-    # --- CẤU HÌNH CŨ CỦA LẠC ---
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     # --- CẤU HÌNH CHATBOT AI ---
-    # AI_PROVIDER: gemini hoặc openai
+    # AI_PROVIDER: openai
     AI_PROVIDER: str = "openai"
-    GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
     OPENAI_API_KEY: Optional[str] = None
     OPEN_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4.1-mini"
@@ -27,15 +24,21 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str  # Mã 16 ký tự màu vàng của Google
     SMTP_FROM_NAME: str = "SmartHealth"
     
+    # --- CẤU HÌNH GOOGLE OAUTH2 ---
+    GOOGLE_CLIENT_ID: str | None = None
+    
     # --- CẤU HÌNH THỜI GIAN CHO OTP ---
     OTP_EXPIRE_MINUTES: int = 5
     OTP_RESEND_COOLDOWN_SECONDS: int = 60
 
-    # --- CONFIGURATION DICT CỦA LẠC ---
+    # --- CONFIGURATION DICT ---
     model_config = SettingsConfigDict(
         env_file=(".env", BACKEND_ENV_FILE),
         extra="ignore", 
-        case_sensitive=True
+        case_sensitive=True,
+        env_file_encoding="utf-8",
+        # Ưu tiên biến môi trường thực tế (từ docker-compose) hơn file .env
+        env_priority="env" 
     )
 
 settings = Settings()

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api from '../../services/api';
 import HealthTipsModal from './HealthTipsModal';
+import { useAuth } from '../../auth/context/AuthContext';
 
 const CaloriesCalculator = () => {
   const [weight, setWeight] = useState('');
@@ -13,13 +14,10 @@ const CaloriesCalculator = () => {
   const [error, setError] = useState('');
   const [showTipsModal, setShowTipsModal] = useState(false);
   const [showLoginWarning, setShowLoginWarning] = useState(false);
-
-  const isLoggedIn = () => {
-    return !!localStorage.getItem('access_token');
-  };
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const handleOpenTipsModal = () => {
-    if (!isLoggedIn()) {
+    if (!isAuthenticated) {
       setShowLoginWarning(true);
       setTimeout(() => setShowLoginWarning(false), 3000);
       return;

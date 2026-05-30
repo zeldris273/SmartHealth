@@ -1,16 +1,14 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
     container_name: smarthealth_db
     restart: always
     environment:
-      POSTGRES_DB: smarthealth_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres-password-change-me  # Hãy đổi mật khẩu này khi chạy production
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"  # Mở cổng để bạn có thể kết nối từ các tool ngoài (vd: DBeaver, PGAdmin) nếu cần
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -19,18 +17,26 @@ services:
     container_name: smarthealth_backend
     restart: always
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres-password-change-me@db:5432/smarthealth_db
-      - SECRET_KEY=thay-doi-sau-khi-trien-khai-de-bao-mat
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=60
-      - AI_PROVIDER=openai  # gemini | openai
-      - SMTP_USER=placeholder@example.com  # Cần thiết để tránh lỗi Pydantic validation
-      - SMTP_PASSWORD=placeholder_password # Cần thiết để tránh lỗi Pydantic validation
-      # Thêm các biến môi trường cấu hình gửi mail OTP hoặc AI Chatbot của bạn tại đây nếu cần chạy trong Docker:
-      # - OPENAI_API_KEY=your_openai_key
-      # - GEMINI_API_KEY=your_gemini_key
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      AI_PROVIDER: ${AI_PROVIDER}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-${OPEN_API_KEY:-}}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-SmartHealth}
+      OTP_EXPIRE_MINUTES: ${OTP_EXPIRE_MINUTES:-5}
+      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
     depends_on:
       - db
 
@@ -38,14 +44,13 @@ services:
     build:
       context: ./frontend
       args:
-        # URL của API Backend khi trình duyệt gọi từ ngoài vào host
-        - VITE_API_URL=http://192.168.100.110:8000
+        VITE_API_URL: ${VITE_API_URL}
     container_name: smarthealth_frontend
     restart: always
     ports:
-      - "5173:80"  # Map cổng 80 của Nginx ra cổng 5173 của máy local để truy cập http://localhost:5173
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       - backend
 
 volumes:
-  pgdata:  # Khai báo volume giúp dữ liệu PostgreSQL không bị mất khi restart container
+  pgdata:

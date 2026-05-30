@@ -12,7 +12,7 @@ const BaymaxLogo = ({ size = 40 }) => (
     <ellipse cx="76" cy="44" rx="7" ry="7" fill="#1e293b"/>
     <circle cx="73.5" cy="41.5" r="2" fill="white"/>
     <circle cx="78" cy="40" r="1" fill="white" opacity="0.6"/>
-    <path d="M46 66 Q60 72 74 66" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M46 66 Q60 72 74 66" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
     <rect x="55" y="78" width="10" height="3" rx="1.5" fill="#ef4444"/>
     <rect x="58.5" y="74.5" width="3" height="10" rx="1.5" fill="#ef4444"/>
     <ellipse cx="45" cy="30" rx="8" ry="4" fill="white" opacity="0.15" transform="rotate(-20 45 30)"/>

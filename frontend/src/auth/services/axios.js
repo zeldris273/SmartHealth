@@ -9,7 +9,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -57,7 +57,7 @@ api.interceptors.response.use(
       }
 
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
 
       if (refreshToken) {
         isRefreshing = true;
@@ -84,8 +84,11 @@ api.interceptors.response.use(
           localStorage.removeItem('token');
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
+          localStorage.removeItem('user_profile');
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('refresh_token');
+          if (window.location.pathname !== '/') {
+            window.location.href = '/?openLogin=true';
           }
           return Promise.reject(refreshError);
         } finally {
@@ -95,8 +98,11 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        localStorage.removeItem('user_profile');
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('refresh_token');
+        if (window.location.pathname !== '/') {
+          window.location.href = '/?openLogin=true';
         }
       }
     }
