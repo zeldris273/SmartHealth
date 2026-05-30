@@ -3,18 +3,16 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import api from '../../services/api';
+import { useAuth } from '../../auth/context/AuthContext';
 
 const HealthChart = ({ refreshKey }) => {
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const isLoggedIn = () => {
-    return !!localStorage.getItem('access_token');
-  };
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const fetchHistory = async () => {
-    if (!isLoggedIn()) {
+    if (!isAuthenticated) {
       setLoading(false);
       return;
     }
@@ -45,10 +43,28 @@ const HealthChart = ({ refreshKey }) => {
   };
 
   useEffect(() => {
-    fetchHistory();
-  }, [refreshKey]);
+    if (!authLoading) {
+      fetchHistory();
+    }
+  }, [refreshKey, authLoading, isAuthenticated]);
 
-  if (!isLoggedIn()) {
+  if (authLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">
+          Biểu đồ cân nặng
+        </h2>
+        <p className="text-xs text-gray-400 italic mb-4">
+          "Your health is my top concern."
+        </p>
+        <div className="text-center py-8">
+          <p className="text-gray-500">Đang xác thực...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return (
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">
