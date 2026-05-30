@@ -20,9 +20,16 @@ app = FastAPI(
 )
 
 # ---- Cấu hình CORS để frontend có thể gọi API
+# Không dùng allow_origins=["*"] khi có allow_credentials=True vì trình duyệt sẽ block
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Sau này thay bằng domain của frontend (vd: ["http://localhost:5173"])
+    allow_origins=[
+        "http://localhost:5173",   # Vite dev server
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",   # Fallback nếu dùng port 3000
+        "http://localhost:80",     # Docker frontend
+        "http://localhost",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

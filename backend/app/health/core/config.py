@@ -26,7 +26,13 @@ class Settings(BaseSettings):
     
     # --- CẤU HÌNH GOOGLE OAUTH2 ---
     GOOGLE_CLIENT_ID: str | None = None
-    
+
+    # --- CẤU HÌNH COOKIE ---
+    # False khi dev (HTTP), True khi deploy production (HTTPS)
+    COOKIE_SECURE: bool = False
+    # URL frontend để cấu hình CORS — tránh dùng wildcard * khi có credentials
+    FRONTEND_URL: str = "http://localhost:5173"
+
     # --- CẤU HÌNH THỜI GIAN CHO OTP ---
     OTP_EXPIRE_MINUTES: int = 5
     OTP_RESEND_COOLDOWN_SECONDS: int = 60

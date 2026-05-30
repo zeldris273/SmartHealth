@@ -5,12 +5,14 @@ from sqlalchemy.orm import Session
 # Add current path to sys.path so we can import from app and database
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from database import SessionLocal
+from database import SessionLocal, Base, engine
 from app.health.models.user import User
 from app.health.services.auth_service import AuthService
 from app.health.core.security import hash_password
 
 def run_test():
+    # Khởi tạo bảng dữ liệu nếu chưa tồn tại
+    Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     email = "test_refresh_token_user_temp@example.com"
     password = "StrongPassword123!"

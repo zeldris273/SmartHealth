@@ -32,12 +32,11 @@ class UserLogin(BaseModel):
 
 class Token(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
+    # refresh_token không còn trả về trong JSON — được lưu trong HttpOnly cookie
 
 
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+# RefreshTokenRequest không còn dùng vì /auth/refresh đọc refresh_token từ HttpOnly cookie
 
 
 # ==========================================

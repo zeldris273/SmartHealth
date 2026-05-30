@@ -5,6 +5,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Bắt buộc để trình duyệt tự gửi HttpOnly cookie (refresh_token) khi request
+  withCredentials: true,
 });
 
 api.interceptors.request.use(
@@ -57,53 +59,41 @@ api.interceptors.response.use(
       }
 
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      isRefreshing = true;
 
-      if (refreshToken) {
-        isRefreshing = true;
-        try {
-          const res = await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/auth/refresh`,
-            { refresh_token: refreshToken }
-          );
+      try {
+        // Không cần gửi body — refresh_token nằm trong HttpOnly cookie, trình duyệt tự gửi
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
 
-          const { access_token, refresh_token } = res.data;
+        const { access_token } = res.data;
+
+        // Lưu access_token mới vào storage (access_token KHÔNG phải HttpOnly)
+        if (localStorage.getItem('access_token')) {
           localStorage.setItem('access_token', access_token);
-          localStorage.setItem('token', access_token);
-          if (refresh_token) {
-            localStorage.setItem('refresh_token', refresh_token);
-          }
-
-          api.defaults.headers.common['Authorization'] = 'Bearer ' + access_token;
-          originalRequest.headers['Authorization'] = 'Bearer ' + access_token;
-
-          processQueue(null, access_token);
-          return api(originalRequest);
-        } catch (refreshError) {
-          processQueue(refreshError, null);
-          localStorage.removeItem('token');
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user_profile');
-          sessionStorage.removeItem('access_token');
-          sessionStorage.removeItem('refresh_token');
-          if (window.location.pathname !== '/') {
-            window.location.href = '/?openLogin=true';
-          }
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
+        } else {
+          sessionStorage.setItem('access_token', access_token);
         }
-      } else {
-        localStorage.removeItem('token');
+
+        api.defaults.headers.common['Authorization'] = 'Bearer ' + access_token;
+        originalRequest.headers['Authorization'] = 'Bearer ' + access_token;
+
+        processQueue(null, access_token);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
         localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user_profile');
         sessionStorage.removeItem('access_token');
-        sessionStorage.removeItem('refresh_token');
         if (window.location.pathname !== '/') {
           window.location.href = '/?openLogin=true';
         }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     return Promise.reject(error);

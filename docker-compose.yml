@@ -42,8 +42,13 @@ services:
     build:
       context: ./frontend
       args:
+<<<<<<< Updated upstream
         VITE_API_URL: ${VITE_API_URL}
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+=======
+        # URL của API Backend khi trình duyệt gọi từ ngoài vào host
+        - VITE_API_URL=http://localhost:8000
+>>>>>>> Stashed changes
     container_name: smarthealth_frontend
     restart: always
     ports:

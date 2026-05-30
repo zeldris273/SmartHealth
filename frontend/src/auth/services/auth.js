@@ -53,3 +53,12 @@ export const googleLoginAPI = async (googleToken) => {
     throw error.response?.data || new Error('Google login failed');
   }
 };
+
+export const logoutAPI = async () => {
+  try {
+    const response = await api.post('/auth/logout');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Logout failed');
+  }
+};
