@@ -45,11 +45,26 @@ export const updateProfileAPI = async (profileData) => {
   }
 };
 
+export const googleOAuthLogin = () => {
+  // Redirect user to backend Google OAuth flow. The backend will handle redirect and cookie setting.
+  window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/google/login`;
+};
+
+// Keep existing googleLoginAPI for backward compatibility (may be deprecated)
 export const googleLoginAPI = async (googleToken) => {
   try {
     const response = await api.post('/auth/google-login', { token: googleToken });
     return response.data;
   } catch (error) {
     throw error.response?.data || new Error('Google login failed');
+  }
+};
+
+export const logoutAPI = async () => {
+  try {
+    const response = await api.post('/auth/logout');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Logout failed');
   }
 };

@@ -64,7 +64,7 @@ class AuthService:
         if user.auth_provider == "google":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This account uses Google Login",
+                detail="This account uses Google Login. Please sign in with Google.",
             )
 
         if not verify_password(password, user.password_hash):
@@ -235,7 +235,12 @@ class AuthService:
             # Cập nhật thông tin nếu user đã tồn tại
             user.google_id = google_id
             user.avatar_url = avatar_url
-            user.auth_provider = "google"
+            # Chỉ đổi auth_provider nếu user chưa có mật khẩu local
+            # Nếu đã có password_hash → cho phép cả 2 phương thức đăng nhập
+            if user.password_hash:
+                user.auth_provider = "both"
+            else:
+                user.auth_provider = "google"
             db.commit()
         
         # Tạo JWT token (sử dụng hàm helper `create_access_token` đã import)

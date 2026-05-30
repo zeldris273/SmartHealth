@@ -38,16 +38,18 @@ const GoogleLoginButton = ({ onSuccess }) => {
 
     window.google.accounts.id.initialize({
       client_id: clientId,
+      ux_mode: 'popup',
       callback: async (response) => {
         try {
-          const result = await googleLogin(response.credential);
+          // You can pass rememberMe: true here if you want it persistent
+          const result = await googleLogin(response.credential, true);
           if (result.success) {
             closeAuthModal();
             if (onSuccess) onSuccess();
           }
         } catch (err) {
           console.error(err);
-          toast.error('Google login failed');
+          // Error is already toasted in googleLogin
         }
       },
     });

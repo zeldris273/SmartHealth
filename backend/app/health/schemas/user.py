@@ -32,12 +32,11 @@ class UserLogin(BaseModel):
 
 class Token(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
+    # refresh_token không còn trả về trong JSON — được lưu trong HttpOnly cookie
 
 
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+# RefreshTokenRequest không còn dùng vì /auth/refresh đọc refresh_token từ HttpOnly cookie
 
 
 # ==========================================
@@ -71,6 +70,8 @@ class UserResponse(BaseModel):
     date_of_birth: date | None = None
     national_id: str | None = None
     address: str | None = None
+    avatar_url: str | None = None
+    auth_provider: str = "local"
 
     # Thay class Config cũ bằng model_config chuẩn Pydantic v2 mới nhất
     model_config = ConfigDict(from_attributes=True)

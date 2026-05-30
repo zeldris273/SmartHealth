@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Date, DateTime, Integer, String
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from database import Base
 
@@ -49,9 +50,5 @@ class User(Base):
         nullable=False,
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
+    # Relationships
+    oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")

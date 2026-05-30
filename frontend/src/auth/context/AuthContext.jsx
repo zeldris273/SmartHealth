@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
-import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI } from '../services/auth';
+import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI } from '../services/auth';
 import { toast } from 'react-toastify';
 
 const AuthContext = createContext(null);
@@ -17,7 +17,8 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
   };
 
-  const saveToken = (token, refreshToken = null, rememberMe = true) => {
+  const saveToken = (token, rememberMe = true) => {
+    // Chỉ lưu access_token — refresh_token nằm trong HttpOnly cookie (không cần JS xử lý)
     if (rememberMe) {
       localStorage.setItem('access_token', token);
       sessionStorage.removeItem('access_token');
@@ -25,15 +26,12 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.setItem('access_token', token);
       localStorage.removeItem('access_token');
     }
-    if (refreshToken) {
-      localStorage.setItem('refresh_token', refreshToken);
-    }
   };
 
   const clearStoredTokens = () => {
+    // Chỉ xóa access_token — refresh_token (HttpOnly cookie) được xóa bởi backend qua /auth/logout
     localStorage.removeItem('access_token');
     sessionStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
   };
 
   const openAuthModal = (type = 'login') => {
@@ -138,7 +136,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       console.log('Token received, saving...');
-      saveToken(token, refreshToken, rememberMe);
+      saveToken(token, rememberMe);
       console.log('Fetching user profile...');
       const userProfile = await getProfileAPI();
       console.log('User profile received:', userProfile);
@@ -177,8 +175,8 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         throw new Error('Google login response missing access token');
       }
-      // Save token similar to normal login
-      saveToken(token, refreshToken, rememberMe);
+      // Save token similar to normal login (refresh_token already set in HttpOnly cookie by backend)
+      saveToken(token, rememberMe);
       const userProfile = await getProfileAPI();
       console.log('User profile after Google login:', userProfile);
       if (!userProfile?.id) {
@@ -239,7 +237,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Gọi backend để xóa HttpOnly cookie (refresh_token)
+    try {
+      await logoutAPI();
+    } catch (e) {
+      // Bỏ qua lỗi — vẫn tiến hành đăng xuất phía client
+      console.warn('Logout API error (ignored):', e);
+    }
     clearStoredTokens();
     localStorage.removeItem('user_profile');
     setUser(null);

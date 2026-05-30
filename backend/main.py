@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.health.api.auth import router as auth_router
+from app.health.api.google_oauth import router as google_oauth_router
 from app.health.api.users import router as users_router
 from app.health.api.bmi import router as bmi_router
 from app.health.api.calories import router as calories_router
@@ -20,9 +21,16 @@ app = FastAPI(
 )
 
 # ---- Cấu hình CORS để frontend có thể gọi API
+# Không dùng allow_origins=["*"] khi có allow_credentials=True vì trình duyệt sẽ block
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Sau này thay bằng domain của frontend (vd: ["http://localhost:5173"])
+    allow_origins=[
+        "http://localhost:5173",   # Vite dev server
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",   # Fallback nếu dùng port 3000
+        "http://localhost:80",     # Docker frontend
+        "http://localhost",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +44,7 @@ app.include_router(calories_router)
 app.include_router(health_tips_router)
 app.include_router(chat_router)
 app.include_router(otp_router)
+app.include_router(google_oauth_router)
 
 
 @app.get("/")
