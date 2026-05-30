@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../auth/context/AuthContext';
 
 const WeightHistory = ({ refreshKey }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const isLoggedIn = () => {
-    return !!localStorage.getItem('access_token');
-  };
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
-    fetchWeightHistory();
-  }, [refreshKey]);
+    if (!authLoading) {
+      fetchWeightHistory();
+    }
+  }, [refreshKey, authLoading, isAuthenticated]);
 
   const fetchWeightHistory = async () => {
-    if (!isLoggedIn()) {
+    if (!isAuthenticated) {
       setLoading(false);
       return;
     }
@@ -32,7 +32,23 @@ const WeightHistory = ({ refreshKey }) => {
     }
   };
 
-  if (!isLoggedIn()) {
+  if (authLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 md:col-span-2">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">
+          Lịch sử cân nặng
+        </h2>
+        <p className="text-xs text-gray-400 italic mb-4">
+          "I cannot deactivate until you are satisfied with your care."
+        </p>
+        <div className="text-center text-gray-500 py-8">
+          Đang xác thực...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return (
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 md:col-span-2">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">
