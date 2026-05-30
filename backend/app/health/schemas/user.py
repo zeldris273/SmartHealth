@@ -101,3 +101,6 @@ class ResetPasswordRequest(BaseModel):
     def check_password(cls, v: str) -> str:
         # Ép mật khẩu mới cũng phải thỏa mãn quy tắc bảo mật mạnh của dự án
         return validate_strong_password(v)
+
+class GoogleLoginRequest(BaseModel):
+    token: str

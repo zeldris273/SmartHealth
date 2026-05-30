@@ -14,6 +14,8 @@ from app.health.schemas.user import (
     ResetPasswordRequest,    
 )
 from app.health.services.auth_service import AuthService
+from app.health.services.google_auth_service import GoogleAuthService
+from app.health.schemas.user import GoogleLoginRequest
 
 
 router = APIRouter(
@@ -99,3 +101,13 @@ def reset_password(
         payload.otp_code, 
         payload.new_password
     )
+
+@router.post("/google-login", response_model=Token)
+def google_login(
+    payload: GoogleLoginRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Nhận Google ID Token từ frontend, xác thực và trả về JWT access token
+    """
+    return AuthService.google_login(db, payload.token)

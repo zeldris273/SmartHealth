@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str  # Mã 16 ký tự màu vàng của Google
     SMTP_FROM_NAME: str = "SmartHealth"
     
+    # --- CẤU HÌNH GOOGLE OAUTH2 ---
+    GOOGLE_CLIENT_ID: str | None = None
+    
     # --- CẤU HÌNH THỜI GIAN CHO OTP ---
     OTP_EXPIRE_MINUTES: int = 5
     OTP_RESEND_COOLDOWN_SECONDS: int = 60
