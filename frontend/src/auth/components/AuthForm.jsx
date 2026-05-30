@@ -149,10 +149,13 @@ const AuthForm = ({
       });
 
       if (result.success) {
-        closeAuthModal();
-        if (onRegisterSuccess) onRegisterSuccess();
-        else if (onSuccess) onSuccess();
-        else navigate('/login', { replace: true });
+        if (onRegisterSuccess) {
+          onRegisterSuccess();
+        } else {
+          closeAuthModal();
+          if (onSuccess) onSuccess();
+          else navigate('/profile', { replace: true });
+        }
       }
     }
 
