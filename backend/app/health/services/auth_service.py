@@ -1,8 +1,11 @@
 from fastapi import HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
+from jose import jwt, JWTError
 
+from app.health.core.config import settings
 from app.health.core.security import (
     create_access_token,
+    create_refresh_token,
     hash_password,
     verify_password,
 )
@@ -61,9 +64,54 @@ class AuthService:
             subject=str(user.id),
             role=user.role,
         )
+        refresh_token = create_refresh_token(
+            subject=str(user.id),
+        )
 
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+        }
+
+    @staticmethod
+    def refresh_token(db: Session, token: str) -> dict:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+            )
+            if payload.get("type") != "refresh":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token type",
+                )
+            user_id = int(payload.get("sub"))
+        except (JWTError, TypeError, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token",
+            )
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        new_access_token = create_access_token(
+            subject=str(user.id),
+            role=user.role,
+        )
+        new_refresh_token = create_refresh_token(
+            subject=str(user.id),
+        )
+
+        return {
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
             "token_type": "bearer",
         }
 

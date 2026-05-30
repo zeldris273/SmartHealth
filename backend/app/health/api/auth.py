@@ -11,7 +11,8 @@ from app.health.schemas.user import (
     UserResponse,
     ForgotPasswordRequest, 
     VerifyResetOTPRequest,  
-    ResetPasswordRequest,    
+    ResetPasswordRequest,
+    RefreshTokenRequest,
 )
 from app.health.services.auth_service import AuthService
 
@@ -47,6 +48,17 @@ def login(
         payload.email,
         payload.password,
     )
+
+
+@router.post(
+    "/refresh",
+    response_model=Token,
+)
+def refresh(
+    payload: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    return AuthService.refresh_token(db, payload.refresh_token)
 
 
 @router.get(

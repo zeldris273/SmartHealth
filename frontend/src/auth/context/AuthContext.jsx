@@ -17,14 +17,18 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('token') || localStorage.getItem('access_token');
   };
 
-  const saveToken = (token) => {
+  const saveToken = (token, refreshToken = null) => {
     localStorage.setItem('token', token);
     localStorage.setItem('access_token', token);
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
+    }
   };
 
   const clearStoredTokens = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
   };
 
   const openAuthModal = (type = 'login') => {
@@ -82,12 +86,13 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await loginAPI(credentials);
       const token = data?.access_token || data?.token;
+      const refreshToken = data?.refresh_token;
 
       if (!token) {
         throw new Error('Login response did not include an access token');
       }
 
-      saveToken(token);
+      saveToken(token, refreshToken);
       const userProfile = await getProfileAPI();
 
       if (!userProfile?.id) {
