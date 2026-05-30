@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import GoogleLoginButton from './GoogleLoginButton';
 import { Mail, Lock, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { useAuth } from '../context/AuthContext';
+
 import { sendOtpAPI } from '../services/auth';
 import Input from './Input';
 import Button from './Button';
@@ -118,6 +120,8 @@ const AuthForm = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
+
+// Google login logic moved to GoogleLoginButton component
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -268,6 +272,10 @@ const AuthForm = ({
           />
           Remember me
         </label>
+      )}
+
+      {isLogin && (
+        <GoogleLoginButton onSuccess={onSuccess} />
       )}
 
       <Button

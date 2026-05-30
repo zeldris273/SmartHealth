@@ -11,7 +11,8 @@ from app.health.schemas.user import (
     UserResponse,
     ForgotPasswordRequest, 
     VerifyResetOTPRequest,  
-    ResetPasswordRequest,    
+    ResetPasswordRequest,
+    RefreshTokenRequest,
 )
 from app.health.services.auth_service import AuthService
 from app.health.services.google_auth_service import GoogleAuthService
@@ -51,6 +52,25 @@ def login(
     )
 
 
+@router.post(
+    "/refresh",
+    response_model=Token,
+)
+def refresh(
+    payload: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    return AuthService.refresh_token(db, payload.refresh_token)
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+)
+def get_profile(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user
 # =================================================================
 # LUỒNG QUÊN MẬT KHẨU (FORGOT / RESET PASSWORD)
 # =================================================================

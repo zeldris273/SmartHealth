@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
-import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI } from '../services/auth';
+import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI } from '../services/auth';
 import { toast } from 'react-toastify';
 
 const AuthContext = createContext(null);
@@ -17,22 +17,23 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
   };
 
-  const saveToken = (token, rememberMe = true) => {
-    console.log('Saving token - rememberMe:', rememberMe, '- token length:', token?.length);
+  const saveToken = (token, refreshToken = null, rememberMe = true) => {
     if (rememberMe) {
       localStorage.setItem('access_token', token);
       sessionStorage.removeItem('access_token');
-      console.log('Token saved to localStorage');
     } else {
       sessionStorage.setItem('access_token', token);
       localStorage.removeItem('access_token');
-      console.log('Token saved to sessionStorage');
+    }
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
     }
   };
 
   const clearStoredTokens = () => {
     localStorage.removeItem('access_token');
     sessionStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
   };
 
   const openAuthModal = (type = 'login') => {
@@ -130,13 +131,14 @@ export const AuthProvider = ({ children }) => {
       const data = await loginAPI(credentials);
       console.log('Login API response:', data);
       const token = data?.access_token || data?.token;
+      const refreshToken = data?.refresh_token;
 
       if (!token) {
         throw new Error('Login response did not include an access token');
       }
 
       console.log('Token received, saving...');
-      saveToken(token, rememberMe);
+      saveToken(token, refreshToken, rememberMe);
       console.log('Fetching user profile...');
       const userProfile = await getProfileAPI();
       console.log('User profile received:', userProfile);
@@ -158,6 +160,42 @@ export const AuthProvider = ({ children }) => {
       const errorMessage = error?.detail || error?.message || 'Login failed';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Google login handling
+  const googleLogin = async (googleToken, rememberMe = false) => {
+    console.log('Google login invoked');
+    setIsLoading(true);
+    try {
+      const data = await googleLoginAPI(googleToken);
+      console.log('Google login API response:', data);
+      const token = data?.access_token || data?.token;
+      const refreshToken = data?.refresh_token;
+      if (!token) {
+        throw new Error('Google login response missing access token');
+      }
+      // Save token similar to normal login
+      saveToken(token, refreshToken, rememberMe);
+      const userProfile = await getProfileAPI();
+      console.log('User profile after Google login:', userProfile);
+      if (!userProfile?.id) {
+        throw new Error('Failed to fetch user profile after Google login');
+      }
+      setUser(userProfile);
+      setIsAuthenticated(true);
+      localStorage.setItem('user_profile', JSON.stringify(userProfile));
+      toast.success('Successfully logged in with Google!');
+      return { success: true };
+    } catch (error) {
+      console.error('Google login error:', error);
+      clearStoredTokens();
+      localStorage.removeItem('user_profile');
+      const errMsg = error?.detail || error?.message || 'Google login failed';
+      toast.error(errMsg);
+      return { success: false, error: errMsg };
     } finally {
       setIsLoading(false);
     }
@@ -229,7 +267,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ 
-      user, isAuthenticated, isLoading, login, register, logout, updateProfile,
+      user, isAuthenticated, isLoading, login, register, logout, updateProfile, googleLogin,
       isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType
     }}>
       {children}

@@ -44,3 +44,12 @@ export const updateProfileAPI = async (profileData) => {
     throw error.response?.data || new Error('Failed to update profile');
   }
 };
+
+export const googleLoginAPI = async (googleToken) => {
+  try {
+    const response = await api.post('/auth/google-login', { token: googleToken });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Google login failed');
+  }
+};
