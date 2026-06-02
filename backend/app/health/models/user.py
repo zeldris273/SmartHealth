@@ -53,4 +53,4 @@ class User(Base):
     )
 
     # Relationships
-    oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")
+    oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")
