@@ -87,6 +87,25 @@ const Profile = () => {
 
   const bmiInfo = getBmiLabel(bmi);
 
+  // Kiểm tra hồ sơ hoàn chỉnh
+  const isProfileComplete = () => {
+    if (!user) return false;
+    // Các trường bắt buộc để hồ sơ được coi là hoàn chỉnh
+    const requiredFields = [
+      'full_name',
+      'email',
+      'phone_number',
+      'date_of_birth',
+      'national_id',
+      'address',
+      'weight',
+      'height'
+    ];
+    return requiredFields.every(field => user[field] && user[field] !== '');
+  };
+
+  const profileComplete = isProfileComplete();
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -387,10 +406,17 @@ const Profile = () => {
                     <Activity size={20} className="text-red-500" />
                     Trạng thái Tài khoản
                   </h3>
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <h4 className="text-sm font-medium text-emerald-800">Hồ sơ Hoàn tất</h4>
-                    <p className="text-xs text-emerald-600 mt-1">Hồ sơ sức khỏe của bạn đã được xác minh đầy đủ.</p>
-                  </div>
+                  {profileComplete ? (
+                    <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                      <h4 className="text-sm font-medium text-emerald-800">Hồ sơ Hoàn tất</h4>
+                      <p className="text-xs text-emerald-600 mt-1">Hồ sơ sức khỏe của bạn đã được xác minh đầy đủ.</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                      <h4 className="text-sm font-medium text-yellow-800">Tài khoản chưa xác thực</h4>
+                      <p className="text-xs text-yellow-600 mt-1">Vui lòng cập nhật đầy đủ thông tin.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
