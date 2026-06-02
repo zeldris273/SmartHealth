@@ -21,6 +21,8 @@ class User(Base):
     date_of_birth = Column(Date, nullable=True)
     national_id = Column(String(20), unique=True, nullable=True)
     address = Column(String(255), nullable=True)
+    weight = Column(Integer, nullable=True, comment="Cân nặng (kg)")
+    height = Column(Integer, nullable=True, comment="Chiều cao (cm)")
 
     # ---- BỔ SUNG CÁC TRƯỜNG ĐĂNG NHẬP GOOGLE  ----
     google_id = Column(

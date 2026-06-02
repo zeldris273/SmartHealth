@@ -54,6 +54,8 @@ class UserProfileUpdate(BaseModel):
     date_of_birth: date | None = None
     national_id: str | None = Field(None, min_length=9, max_length=20)
     address: str | None = Field(None, max_length=255)
+    weight: int | None = Field(None, ge=1, le=500)
+    height: int | None = Field(None, ge=1, le=300)
 
 
 # ==========================================
@@ -70,6 +72,8 @@ class UserResponse(BaseModel):
     date_of_birth: date | None = None
     national_id: str | None = None
     address: str | None = None
+    weight: int | None = None
+    height: int | None = None
     avatar_url: str | None = None
     auth_provider: str = "local"
 

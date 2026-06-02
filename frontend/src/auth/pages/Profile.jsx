@@ -17,6 +17,8 @@ const Profile = () => {
     date_of_birth: '',
     national_id: '',
     address: '',
+    weight: '',
+    height: '',
     avatar: ''
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -29,6 +31,8 @@ const Profile = () => {
       date_of_birth: user?.date_of_birth || '',
       national_id: user?.national_id || '',
       address: user?.address || '',
+      weight: user?.weight || '',
+      height: user?.height || '',
       avatar: user?.avatar || ''
     });
     setIsEditing(true);
@@ -57,6 +61,8 @@ const Profile = () => {
       date_of_birth: formData.date_of_birth || null,
       national_id: formData.national_id || null,
       address: formData.address || null,
+      weight: formData.weight ? parseInt(formData.weight) : null,
+      height: formData.height ? parseInt(formData.height) : null,
     };
     const result = await updateProfile(payload);
     setIsSaving(false);
@@ -64,6 +70,22 @@ const Profile = () => {
       setIsEditing(false);
     }
   };
+
+  // Tính BMI nếu có đủ dữ liệu
+  const bmi = user?.weight && user?.height
+    ? (user.weight / ((user.height / 100) ** 2)).toFixed(1)
+    : null;
+
+  const getBmiLabel = (bmi) => {
+    if (!bmi) return null;
+    const val = parseFloat(bmi);
+    if (val < 18.5) return { label: 'Thiếu cân', color: 'text-blue-600 bg-blue-50 border-blue-200' };
+    if (val < 25) return { label: 'Bình thường', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    if (val < 30) return { label: 'Thừa cân', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+    return { label: 'Béo phì', color: 'text-red-700 bg-red-50 border-red-200' };
+  };
+
+  const bmiInfo = getBmiLabel(bmi);
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -94,11 +116,11 @@ const Profile = () => {
                 </div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">{user?.full_name || 'Healthcare User'}</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900">{user?.full_name || 'Người dùng'}</h1>
                 <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
                   <span className="inline-flex items-center gap-1">@{user?.email ? user.email.split('@')[0] : 'user'}</span>
                   <span>•</span>
-                  <span className="text-red-600 font-medium">{user?.role || 'Patient'}</span>
+                  <span className="text-red-600 font-medium">{user?.role === 'admin' ? 'Quản trị viên' : 'Bệnh nhân'}</span>
                 </p>
               </div>
             </div>
@@ -106,7 +128,7 @@ const Profile = () => {
               {!isEditing && (
                 <Button className="flex-1 sm:flex-none" onClick={startEditing}>
                   <Settings size={18} className="mr-2" />
-                  Edit Profile
+                  Chỉnh sửa Hồ sơ
                 </Button>
               )}
               <Button 
@@ -115,7 +137,7 @@ const Profile = () => {
                 className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
               >
                 <LogOut size={18} className="mr-2" />
-                Sign Out
+                Đăng xuất
               </Button>
             </div>
           </div>
@@ -126,12 +148,12 @@ const Profile = () => {
               
               {/* Left Column - Personal Info */}
               <div className="lg:col-span-2 space-y-8">
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300 relative overflow-hidden">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <User size={20} className="text-red-500" />
-                      Identity & Contact Information
-                    </div>
+
+                {/* Card: Thông tin Cá nhân & Liên hệ */}
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                    <User size={20} className="text-red-500" />
+                    Thông tin Cá nhân & Liên hệ
                   </h3>
                   
                   {isEditing ? (
@@ -149,7 +171,7 @@ const Profile = () => {
                               )}
                               <div className="absolute inset-0 bg-slate-900/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px]">
                                 <Camera className="text-white mb-1" size={20} />
-                                <span className="text-white text-[10px] font-medium tracking-wide uppercase">Update</span>
+                                <span className="text-white text-[10px] font-medium tracking-wide uppercase">Cập nhật</span>
                               </div>
                             </div>
                           </div>
@@ -161,36 +183,36 @@ const Profile = () => {
                             onChange={handleAvatarChange}
                           />
                         </div>
-                        <p className="text-xs text-slate-500 mt-3 font-medium">Click to upload new photo</p>
+                        <p className="text-xs text-slate-500 mt-3 font-medium">Nhấp để tải ảnh mới</p>
                       </div>
 
                       <Input
-                        label="Full Name"
+                        label="Họ và Tên"
                         name="full_name"
                         icon={User}
                         value={formData.full_name}
                         onChange={handleChange}
-                        placeholder="Enter full name"
+                        placeholder="Nhập họ và tên"
                       />
                       <Input
-                        label="Email Address"
+                        label="Địa chỉ Email"
                         name="email"
                         type="email"
                         icon={Mail}
                         value={formData.email}
                         onChange={handleChange}
-                        placeholder="Enter email address"
+                        placeholder="Nhập địa chỉ email"
                       />
                       <Input
-                        label="Phone Number"
+                        label="Số Điện thoại"
                         name="phone_number"
                         icon={Phone}
                         value={formData.phone_number}
                         onChange={handleChange}
-                        placeholder="Enter phone number"
+                        placeholder="Nhập số điện thoại"
                       />
                       <Input
-                        label="Date of Birth"
+                        label="Ngày sinh"
                         name="date_of_birth"
                         type="date"
                         icon={Calendar}
@@ -199,24 +221,94 @@ const Profile = () => {
                         placeholder="YYYY-MM-DD"
                       />
                       <Input
-                        label="Citizen ID / CCCD"
+                        label="Số CCCD"
                         name="national_id"
                         icon={CreditCard}
                         value={formData.national_id}
                         onChange={handleChange}
-                        placeholder="Enter ID number"
+                        placeholder="Nhập số CCCD"
                       />
                       <div className="sm:col-span-2">
                         <Input
-                          label="Residential Address"
+                          label="Địa chỉ Thường trú"
                           name="address"
                           icon={MapPin}
                           value={formData.address}
                           onChange={handleChange}
-                          placeholder="Enter your full address"
+                          placeholder="Nhập địa chỉ đầy đủ"
                         />
                       </div>
-                      
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Địa chỉ Email</p>
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.email ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <Mail size={16} className={user?.email ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.email || 'Chưa cung cấp'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Số Điện thoại</p>
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.phone_number ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <Phone size={16} className={user?.phone_number ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.phone_number || 'Chưa cung cấp'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Ngày sinh</p>
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.date_of_birth ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <Calendar size={16} className={user?.date_of_birth ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.date_of_birth || 'Chưa cung cấp'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Số CCCD</p>
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.national_id ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <CreditCard size={16} className={user?.national_id ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.national_id || 'Chưa cung cấp'}
+                        </p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Địa chỉ Thường trú</p>
+                        <p className={`text-base font-medium flex items-center gap-2 ${user?.address ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          <MapPin size={16} className={user?.address ? 'text-red-400' : 'text-slate-300'} />
+                          {user?.address || 'Chưa cung cấp'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Card: Thông tin Sức khỏe (tách riêng) */}
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                    <HeartPulse size={20} className="text-red-500" />
+                    Thông tin Sức khỏe
+                  </h3>
+
+                  {isEditing ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 animate-in fade-in slide-in-from-left-4 duration-300">
+                      <Input
+                        label="Cân nặng (kg)"
+                        name="weight"
+                        type="number"
+                        icon={Activity}
+                        value={formData.weight}
+                        onChange={handleChange}
+                        placeholder="Nhập cân nặng"
+                      />
+                      <Input
+                        label="Chiều cao (cm)"
+                        name="height"
+                        type="number"
+                        icon={Activity}
+                        value={formData.height}
+                        onChange={handleChange}
+                        placeholder="Nhập chiều cao"
+                      />
+
+                      {/* Save / Cancel buttons — chỉ hiển thị ở đây vì đây là card cuối cùng trong edit mode */}
                       <div className="sm:col-span-2 flex items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
                         <Button 
                           variant="ghost" 
@@ -224,83 +316,80 @@ const Profile = () => {
                           disabled={isSaving}
                         >
                           <X size={16} className="mr-2" />
-                          Cancel
+                          Hủy
                         </Button>
                         <Button onClick={handleSave} isLoading={isSaving}>
                           <Check size={16} className="mr-2" />
-                          Save Changes
+                          Lưu Thay đổi
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Email Address</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.email ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <Mail size={16} className={user?.email ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.email || 'Not provided'}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                      {/* Cân nặng */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Cân nặng</p>
+                        <p className={`text-2xl font-bold ${user?.weight ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {user?.weight ? user.weight : '—'}
                         </p>
+                        {user?.weight && <p className="text-xs text-slate-500 mt-1">kg</p>}
                       </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Phone Number</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.phone_number ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <Phone size={16} className={user?.phone_number ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.phone_number || 'Not provided'}
+
+                      {/* Chiều cao */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Chiều cao</p>
+                        <p className={`text-2xl font-bold ${user?.height ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {user?.height ? user.height : '—'}
                         </p>
+                        {user?.height && <p className="text-xs text-slate-500 mt-1">cm</p>}
                       </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Date of Birth</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.date_of_birth ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <Calendar size={16} className={user?.date_of_birth ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.date_of_birth || 'Not provided'}
+
+                      {/* BMI */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Chỉ số BMI</p>
+                        <p className={`text-2xl font-bold ${bmi ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {bmi || '—'}
                         </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Citizen ID / CCCD</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.national_id ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <CreditCard size={16} className={user?.national_id ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.national_id || 'Not provided'}
-                        </p>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Residential Address</p>
-                        <p className={`text-base font-medium flex items-center gap-2 ${user?.address ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                          <MapPin size={16} className={user?.address ? 'text-red-400' : 'text-slate-300'} />
-                          {user?.address || 'Not provided'}
-                        </p>
+                        {bmiInfo && (
+                          <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full border ${bmiInfo.color}`}>
+                            {bmiInfo.label}
+                          </span>
+                        )}
+                        {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Cần nhập đủ dữ liệu</p>}
                       </div>
                     </div>
                   )}
                 </div>
+
               </div>
 
               {/* Right Column - Security & Status */}
               <div className="space-y-8">
                 {/* Security Card */}
                 <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
-                   <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
                     <Key size={20} className="text-red-500" />
-                    Security Settings
+                    Thiết lập Bảo mật
                   </h3>
                   <div className="space-y-4">
                     <Button variant="secondary" className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50">
-                      Change Password
+                      Đổi mật khẩu
                     </Button>
                     <Button variant="secondary" className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50">
-                      Enable Two-Factor Auth
+                      Bật xác thực 2 lớp
                     </Button>
                   </div>
                 </div>
 
                 {/* Status Card */}
                 <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
-                   <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
                     <Activity size={20} className="text-red-500" />
-                    Account Status
+                    Trạng thái Tài khoản
                   </h3>
                   <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <h4 className="text-sm font-medium text-emerald-800">Profile Complete</h4>
-                    <p className="text-xs text-emerald-600 mt-1">Your enterprise healthcare profile is fully verified.</p>
+                    <h4 className="text-sm font-medium text-emerald-800">Hồ sơ Hoàn tất</h4>
+                    <p className="text-xs text-emerald-600 mt-1">Hồ sơ sức khỏe của bạn đã được xác minh đầy đủ.</p>
                   </div>
                 </div>
               </div>

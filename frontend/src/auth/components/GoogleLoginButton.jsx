@@ -2,23 +2,18 @@
 
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-toastify';
+
+const GSI_INIT_KEY = '__smarthealth_google_signin_initialized';
 
 /**
  * GoogleLoginButton
  *
  * Renders a Google Sign‑In button using the Google Identity Services library.
- * The library script is already included in `public/index.html`:
- *   <script src="https://accounts.google.com/gsi/client" async defer></script>
- *
- * The component initializes the Google One‑Tap / button with the client ID from
- * the environment variable `VITE_GOOGLE_CLIENT_ID`. When the user selects a
- * Google account, the library returns an ID token which we forward to the backend
- * via `googleLogin` from `AuthContext`.
+ * The library script is already included in `index.html`.
  */
-const GoogleLoginButton = ({ onSuccess }) => {
+const GoogleLoginButton = ({ onSuccess, variant = 'baymax' }) => {
   const { googleLogin, closeAuthModal } = useAuth();
-  const initializedRef = useRef(false);
+  const buttonRef = useRef(null);
 
   useEffect(() => {
     if (!window.google?.accounts?.id) {
@@ -26,47 +21,64 @@ const GoogleLoginButton = ({ onSuccess }) => {
       return;
     }
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
     if (!clientId) {
       console.error('VITE_GOOGLE_CLIENT_ID is not defined in environment.');
       return;
     }
 
-    // Prevent re‑initialization on every mount
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      ux_mode: 'popup',
-      callback: async (response) => {
-        try {
-          // You can pass rememberMe: true here if you want it persistent
-          const result = await googleLogin(response.credential, true);
-          if (result.success) {
-            closeAuthModal();
-            if (onSuccess) onSuccess();
+    if (!window[GSI_INIT_KEY]) {
+      window[GSI_INIT_KEY] = true;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          const credential = response?.credential?.trim();
+          if (!credential) {
+            console.error('Google Sign-In did not return a credential.');
+            return;
           }
-        } catch (err) {
-          console.error(err);
-          // Error is already toasted in googleLogin
-        }
-      },
-    });
+          try {
+            const result = await googleLogin(credential, true);
+            if (result.success) {
+              closeAuthModal();
+              if (onSuccess) onSuccess();
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        },
+      });
+    }
 
-    // Render button (omit width – GSI expects a number or omitted)
-    window.google.accounts.id.renderButton(
-      document.getElementById('google-signin-button'),
-      {
+    const container = buttonRef.current;
+    if (!container) return;
+
+    const renderGoogleButton = () => {
+      const width = container.offsetWidth;
+      if (width === 0) {
+        setTimeout(renderGoogleButton, 50);
+        return;
+      }
+      
+      container.innerHTML = '';
+      window.google.accounts.id.renderButton(container, {
         theme: 'outline',
         size: 'large',
-        // width: '100%', // removed – invalid value
         locale: 'vi',
-      }
-    );
-  }, [googleLogin, closeAuthModal, onSuccess]);
+        width: width,
+        shape: variant === 'baymax' ? 'pill' : 'rectangular',
+      });
+    };
 
-  return <div id="google-signin-button" className="w-full" />;
+    renderGoogleButton();
+  }, [googleLogin, closeAuthModal, onSuccess, variant]);
+
+  return (
+    <div
+      ref={buttonRef}
+      className={`w-full ${variant === 'glass' ? 'auth-glass-field' : ''}`}
+    />
+  );
 };
 
 export default GoogleLoginButton;
