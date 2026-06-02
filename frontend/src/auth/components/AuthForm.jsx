@@ -275,7 +275,7 @@ const AuthForm = ({
       )}
 
       {isLogin && (
-        <GoogleLoginButton onSuccess={onSuccess} />
+        <GoogleLoginButton onSuccess={onSuccess} variant={variant} />
       )}
 
       <Button

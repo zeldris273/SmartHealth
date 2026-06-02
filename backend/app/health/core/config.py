@@ -3,6 +3,7 @@ from typing import Optional
 from pathlib import Path
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+ROOT_ENV_FILE = Path(__file__).resolve().parents[4] / ".env"
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
 
     # --- CONFIGURATION DICT ---
     model_config = SettingsConfigDict(
-        env_file=(".env", BACKEND_ENV_FILE),
+        env_file=(".env", BACKEND_ENV_FILE, ROOT_ENV_FILE),
         extra="ignore", 
         case_sensitive=True,
         env_file_encoding="utf-8",
