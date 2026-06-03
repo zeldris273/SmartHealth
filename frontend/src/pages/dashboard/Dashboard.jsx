@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import BMICalculator from '../../components/dashboard/BMICalculator';
+import HealthCalculator from '../../components/dashboard/HealthCalculator';
 import HealthChart from '../../components/dashboard/HealthChart';
 import WeightHistory from '../../components/dashboard/WeightHistory';
-import CaloriesCalculator from '../../components/dashboard/CaloriesCalculator';
 
 const Dashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -21,10 +20,9 @@ const Dashboard = () => {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <BMICalculator onSave={refreshHistory} />
+        <HealthCalculator onSave={refreshHistory} />
         <HealthChart refreshKey={refreshKey} />
         <WeightHistory refreshKey={refreshKey} />
-        <CaloriesCalculator />
       </div>
     </div>
   );
