@@ -53,6 +53,8 @@ def calculate_bmi(body: BMICalculateRequest):
             height_cm=body.height_cm,
             age=body.age,
             gender=body.gender,
+            wrist_circumference_cm=body.wrist_circumference_cm,
+            ankle_circumference_cm=body.ankle_circumference_cm,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -63,9 +65,15 @@ def calculate_bmi(body: BMICalculateRequest):
     return BMICalculateResponse(
         weight_kg=result.weight_kg,
         height_cm=result.height_cm,
+        wrist_circumference_cm=result.wrist_circumference_cm,
+        ankle_circumference_cm=result.ankle_circumference_cm,
         bmi_value=result.bmi_value,
         bmi_category=result.bmi_category,
         bmi_category_vi=result.bmi_category_vi,
+        wrist_to_height_ratio=result.wrist_to_height_ratio,
+        ankle_to_height_ratio=result.ankle_to_height_ratio,
+        body_frame_size=result.body_frame_size,
+        healthy_weight_range_for_frame=result.healthy_weight_range_for_frame,
         healthy_bmi_range=result.healthy_bmi_range,
         healthy_weight_range_kg=result.healthy_weight_range_kg,
         tips=[BMIHealthTip(**t) for t in result.tips],
@@ -103,6 +111,8 @@ def calculate_and_save_bmi(
             height_cm=body.height_cm,
             age=body.age,
             gender=body.gender,
+            wrist_circumference_cm=body.wrist_circumference_cm,
+            ankle_circumference_cm=body.ankle_circumference_cm,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -125,9 +135,15 @@ def calculate_and_save_bmi(
         existing_record.height_cm = result.height_cm
         existing_record.age = body.age
         existing_record.gender = body.gender
+        existing_record.wrist_circumference_cm = result.wrist_circumference_cm
+        existing_record.ankle_circumference_cm = result.ankle_circumference_cm
         existing_record.bmi_value = result.bmi_value
         existing_record.bmi_category = result.bmi_category
         existing_record.bmi_category_vi = result.bmi_category_vi
+        existing_record.wrist_to_height_ratio = result.wrist_to_height_ratio
+        existing_record.ankle_to_height_ratio = result.ankle_to_height_ratio
+        existing_record.body_frame_size = result.body_frame_size
+        existing_record.healthy_weight_range_for_frame = result.healthy_weight_range_for_frame
         db.commit()
         db.refresh(existing_record)
         return existing_record
@@ -139,9 +155,15 @@ def calculate_and_save_bmi(
             height_cm=result.height_cm,
             age=body.age,
             gender=body.gender,
+            wrist_circumference_cm=result.wrist_circumference_cm,
+            ankle_circumference_cm=result.ankle_circumference_cm,
             bmi_value=result.bmi_value,
             bmi_category=result.bmi_category,
             bmi_category_vi=result.bmi_category_vi,
+            wrist_to_height_ratio=result.wrist_to_height_ratio,
+            ankle_to_height_ratio=result.ankle_to_height_ratio,
+            body_frame_size=result.body_frame_size,
+            healthy_weight_range_for_frame=result.healthy_weight_range_for_frame,
         )
         db.add(record)
         db.commit()
