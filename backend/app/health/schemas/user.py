@@ -56,6 +56,7 @@ class UserProfileUpdate(BaseModel):
     address: str | None = Field(None, max_length=255)
     weight: int | None = Field(None, ge=1, le=500)
     height: int | None = Field(None, ge=1, le=300)
+    fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
 
 
 # ==========================================
@@ -74,6 +75,7 @@ class UserResponse(BaseModel):
     address: str | None = None
     weight: int | None = None
     height: int | None = None
+    fitness_goal: str | None = None
     avatar_url: str | None = None
     auth_provider: str = "local"
 
