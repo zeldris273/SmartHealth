@@ -14,11 +14,13 @@ const Profile = () => {
     full_name: '',
     email: '',
     phone_number: '',
+    gender: '',
     date_of_birth: '',
     national_id: '',
     address: '',
     weight: '',
     height: '',
+    fitness_goal: '',
     avatar: ''
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -28,11 +30,13 @@ const Profile = () => {
       full_name: user?.full_name || '',
       email: user?.email || '',
       phone_number: user?.phone_number || '',
+      gender: user?.gender || '',
       date_of_birth: user?.date_of_birth || '',
       national_id: user?.national_id || '',
       address: user?.address || '',
       weight: user?.weight || '',
       height: user?.height || '',
+      fitness_goal: user?.fitness_goal || '',
       avatar: user?.avatar || ''
     });
     setIsEditing(true);
@@ -58,11 +62,13 @@ const Profile = () => {
     const payload = {
       full_name: formData.full_name,
       phone_number: formData.phone_number || null,
+      gender: formData.gender || null,
       date_of_birth: formData.date_of_birth || null,
       national_id: formData.national_id || null,
       address: formData.address || null,
       weight: formData.weight ? parseInt(formData.weight) : null,
       height: formData.height ? parseInt(formData.height) : null,
+      fitness_goal: formData.fitness_goal || null,
     };
     const result = await updateProfile(payload);
     setIsSaving(false);
@@ -327,6 +333,39 @@ const Profile = () => {
                         placeholder="Nhập chiều cao"
                       />
 
+                      {/* Giới tính */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Giới tính</label>
+                        <select
+                          name="gender"
+                          value={formData.gender}
+                          onChange={handleChange}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
+                        >
+                          <option value="">-- Chọn giới tính --</option>
+                          <option value="male">Nam</option>
+                          <option value="female">Nữ</option>
+                          <option value="other">Khác</option>
+                        </select>
+                      </div>
+
+                      {/* Mục tiêu */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Mục tiêu</label>
+                        <select
+                          name="fitness_goal"
+                          value={formData.fitness_goal}
+                          onChange={handleChange}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
+                        >
+                          <option value="">-- Chọn mục tiêu --</option>
+                          <option value="lose_weight">Giảm cân nặng</option>
+                          <option value="gain_weight">Tăng cân nặng</option>
+                          <option value="maintain_weight">Duy trì cân nặng</option>
+                          <option value="gain_muscle">Tăng cơ bắp</option>
+                        </select>
+                      </div>
+
                       {/* Save / Cancel buttons — chỉ hiển thị ở đây vì đây là card cuối cùng trong edit mode */}
                       <div className="sm:col-span-2 flex items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
                         <Button 
@@ -375,6 +414,26 @@ const Profile = () => {
                           </span>
                         )}
                         {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Cần nhập đủ dữ liệu</p>}
+                      </div>
+
+                      {/* Giới tính */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Giới tính</p>
+                        <p className={`text-base font-medium ${user?.gender ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          {user?.gender === 'male' ? 'Nam' : user?.gender === 'female' ? 'Nữ' : user?.gender === 'other' ? 'Khác' : 'Chưa cung cấp'}
+                        </p>
+                      </div>
+
+                      {/* Mục tiêu */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Mục tiêu sức khỏe</p>
+                        <p className={`text-base font-medium ${user?.fitness_goal ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                          {user?.fitness_goal === 'lose_weight' ? '📉 Giảm cân nặng' 
+                            : user?.fitness_goal === 'gain_weight' ? '📈 Tăng cân nặng'
+                            : user?.fitness_goal === 'maintain_weight' ? '⚖️ Duy trì cân nặng'
+                            : user?.fitness_goal === 'gain_muscle' ? '💪 Tăng cơ bắp'
+                            : 'Chưa cung cấp'}
+                        </p>
                       </div>
                     </div>
                   )}

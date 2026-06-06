@@ -23,6 +23,11 @@ class User(Base):
     address = Column(String(255), nullable=True)
     weight = Column(Integer, nullable=True, comment="Cân nặng (kg)")
     height = Column(Integer, nullable=True, comment="Chiều cao (cm)")
+    fitness_goal = Column(
+        String(50),
+        nullable=True,
+        comment="Mục tiêu sức khỏe: lose_weight, gain_weight, maintain_weight, gain_muscle"
+    )
 
     # ---- BỔ SUNG CÁC TRƯỜNG ĐĂNG NHẬP GOOGLE  ----
     google_id = Column(
