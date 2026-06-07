@@ -146,7 +146,6 @@ def calculate_and_save_bmi(
         existing_record.healthy_weight_range_for_frame = result.healthy_weight_range_for_frame
         db.commit()
         db.refresh(existing_record)
-        return existing_record
     else:
         # Nếu chưa có, tạo bản ghi mới
         record = BMIRecord(
@@ -168,7 +167,20 @@ def calculate_and_save_bmi(
         db.add(record)
         db.commit()
         db.refresh(record)
-        return record
+    
+    # Update user profile with current weight and height
+    current_user.weight = int(result.weight_kg) if result.weight_kg else None
+    current_user.height = int(result.height_cm) if result.height_cm else None
+    
+    # Update gender if provided
+    if body.gender:
+        current_user.gender = body.gender
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    # Return the BMI record
+    return existing_record if existing_record else record
 
 
 # --------------------------------------------------------------------------- #
@@ -251,4 +263,40 @@ def get_weight_history(
     history_items.reverse()
 
     return WeightHistoryResponse(history=history_items)
+
+
+# --------------------------------------------------------------------------- #
+#  GET /health/bmi/latest  –  Lấy BMI record mới nhất của người dùng         #
+# --------------------------------------------------------------------------- #
+
+@router.get(
+    "/bmi/latest",
+    response_model=BMIRecordResponse,
+    summary="Lấy chỉ số BMI mới nhất",
+    description="Lấy bản ghi BMI mới nhất (lần tính gần đây nhất) của người dùng hiện tại. Yêu cầu đăng nhập.",
+    status_code=status.HTTP_200_OK,
+)
+def get_latest_bmi(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Trả về bản ghi BMI mới nhất của người dùng hiện tại.
+    Nếu không có bản ghi nào, trả về 404.
+    Yêu cầu đăng nhập.
+    """
+    record = (
+        db.query(BMIRecord)
+        .filter(BMIRecord.user_id == current_user.id)
+        .order_by(BMIRecord.created_at.desc())
+        .first()
+    )
+    
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chưa có bản ghi BMI nào. Vui lòng tính BMI trước."
+        )
+    
+    return record
 
