@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -6,10 +6,14 @@ import {
   User, Mail, Shield, LogOut, HeartPulse, 
   Settings, Phone, MapPin, Calendar, CreditCard, Key, Activity, Check, X, Camera
 } from 'lucide-react';
+import api from '../../services/api';
 
 const Profile = () => {
   const { user, logout, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [latestBMI, setLatestBMI] = useState(null);
+  const [bmiLoading, setBmiLoading] = useState(true);
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -23,7 +27,25 @@ const Profile = () => {
     fitness_goal: '',
     avatar: ''
   });
-  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch latest BMI record
+  useEffect(() => {
+    const fetchLatestBMI = async () => {
+      try {
+        const response = await api.get('/health/bmi/latest');
+        setLatestBMI(response.data);
+      } catch (error) {
+        // Nếu không có BMI record, để null
+        setLatestBMI(null);
+      } finally {
+        setBmiLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchLatestBMI();
+    }
+  }, [user]);
 
   const startEditing = () => {
     setFormData({
@@ -77,21 +99,22 @@ const Profile = () => {
     }
   };
 
-  // Tính BMI nếu có đủ dữ liệu
-  const bmi = user?.weight && user?.height
-    ? (user.weight / ((user.height / 100) ** 2)).toFixed(1)
-    : null;
+  // Tính BMI từ lần tính gần đây nhất từ dashboard, không phải tính lại
+  const bmi = latestBMI?.bmi_value || null;
+  const bmiCategory = latestBMI?.bmi_category_vi || null;
 
-  const getBmiLabel = (bmi) => {
-    if (!bmi) return null;
-    const val = parseFloat(bmi);
-    if (val < 18.5) return { label: 'Thiếu cân', color: 'text-blue-600 bg-blue-50 border-blue-200' };
-    if (val < 25) return { label: 'Bình thường', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-    if (val < 30) return { label: 'Thừa cân', color: 'text-amber-700 bg-amber-50 border-amber-200' };
-    return { label: 'Béo phì', color: 'text-red-700 bg-red-50 border-red-200' };
+  const getBmiLabel = (category) => {
+    if (!category) return null;
+    const categoryMap = {
+      'Thiếu cân': { label: 'Thiếu cân', color: 'text-blue-600 bg-blue-50 border-blue-200' },
+      'Bình thường': { label: 'Bình thường', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+      'Thừa cân': { label: 'Thừa cân', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+      'Béo phì': { label: 'Béo phì', color: 'text-red-700 bg-red-50 border-red-200' }
+    };
+    return categoryMap[category] || null;
   };
 
-  const bmiInfo = getBmiLabel(bmi);
+  const bmiInfo = getBmiLabel(bmiCategory);
 
   // Kiểm tra hồ sơ hoàn chỉnh
   const isProfileComplete = () => {
@@ -405,15 +428,28 @@ const Profile = () => {
                       {/* BMI */}
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Chỉ số BMI</p>
-                        <p className={`text-2xl font-bold ${bmi ? 'text-slate-800' : 'text-slate-300'}`}>
-                          {bmi || '—'}
-                        </p>
-                        {bmiInfo && (
-                          <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full border ${bmiInfo.color}`}>
-                            {bmiInfo.label}
-                          </span>
+                        {bmiLoading ? (
+                          <div className="animate-pulse">
+                            <p className="text-2xl font-bold text-slate-300">—</p>
+                          </div>
+                        ) : (
+                          <>
+                            <p className={`text-2xl font-bold ${bmi ? 'text-slate-800' : 'text-slate-300'}`}>
+                              {bmi ? bmi.toFixed(1) : '—'}
+                            </p>
+                            {bmiInfo && (
+                              <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full border ${bmiInfo.color}`}>
+                                {bmiInfo.label}
+                              </span>
+                            )}
+                            {latestBMI && (
+                              <p className="text-xs text-slate-400 mt-2">
+                                Cập nhật: {new Date(latestBMI.created_at).toLocaleDateString('vi-VN')}
+                              </p>
+                            )}
+                            {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Chưa có dữ liệu BMI</p>}
+                          </>
                         )}
-                        {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Cần nhập đủ dữ liệu</p>}
                       </div>
 
                       {/* Giới tính */}
