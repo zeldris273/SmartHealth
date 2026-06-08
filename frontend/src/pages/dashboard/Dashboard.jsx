@@ -2,12 +2,16 @@ import { useState } from 'react';
 import HealthCalculator from '../../components/dashboard/HealthCalculator';
 import HealthChart from '../../components/dashboard/HealthChart';
 import WeightHistory from '../../components/dashboard/WeightHistory';
+import { useAuth } from '../../auth/context/AuthContext';
 
 const Dashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
+  const { refreshProfile } = useAuth();
 
-  const refreshHistory = () => {
+  const refreshHistory = async () => {
     setRefreshKey(prev => prev + 1);
+    // Refresh the user profile to update weight and height
+    await refreshProfile();
   };
 
   return (
