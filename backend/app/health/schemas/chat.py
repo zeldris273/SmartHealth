@@ -56,3 +56,24 @@ class ChatMessageResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ChatSessionUpdateRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=120, description="Tên cuộc trò chuyện mới")
+
+
+class ChatConversationMessage(BaseModel):
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChatConversationResponse(BaseModel):
+    session_id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[ChatConversationMessage] = Field(default_factory=list)

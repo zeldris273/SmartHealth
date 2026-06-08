@@ -114,7 +114,7 @@ const ChatInput = ({ onSend, disabled = false }) => {
       </div>
 
       <p className="mt-2 px-2 text-[11px] text-slate-400">
-        Hỗ trợ PDF, DOCX, TXT. File sẽ được xử lý bằng RAG và lưu vào kho kiến thức cá nhân.
+        Hỗ trợ PDF, DOCX, TXT. File sẽ được lưu vào kho kiến thức cá nhân.
       </p>
     </div>
   );

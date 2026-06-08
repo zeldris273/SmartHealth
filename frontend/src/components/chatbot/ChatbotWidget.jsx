@@ -1,17 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, MessageCircle, Minus, Plus, Search, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, MessageCircle, Minus, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../auth/context/AuthContext';
 import api from '../../services/api';
 import ChatBubble from './ChatBubble';
 import ChatInput from './ChatInput';
 
-const STORAGE_KEY = 'smarthealth_chatbot_conversations';
-const ACTIVE_SESSION_KEY = 'chat_session_id';
+const STORAGE_PREFIX = 'smarthealth_chatbot_conversations';
+const ACTIVE_SESSION_PREFIX = 'chat_session_id';
+
+const getStorageKey = (userKey) => `${STORAGE_PREFIX}_${userKey}`;
+const getActiveSessionKey = (userKey) => `${ACTIVE_SESSION_PREFIX}_${userKey}`;
 
 const createWelcomeMessage = () => ({
   id: 'welcome',
   from: 'bot',
-  text: 'Xin chào, tôi là Baymax. Bạn có thể hỏi về sức khỏe, BMI, dinh dưỡng, luyện tập hoặc tải PDF/DOCX/TXT để tôi tư vấn bằng RAG.',
+  text: 'Xin chào, tôi là Baymax. Bạn có thể hỏi tôi bất cứ điều gì về sức khỏe, dinh dưỡng, luyện tập hoặc gửi các file PDF/DOCX/TXT để tôi tư vấn.',
 });
 
 const createConversation = () => ({
@@ -22,9 +25,9 @@ const createConversation = () => ({
   messages: [createWelcomeMessage()],
 });
 
-const loadConversations = () => {
+const loadConversationsFromStorage = (userKey) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey(userKey));
     const parsed = raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
   } catch (error) {
@@ -33,9 +36,24 @@ const loadConversations = () => {
   return [createConversation()];
 };
 
-const saveConversations = (conversations) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 20)));
+const saveConversationsToStorage = (userKey, conversations) => {
+  localStorage.setItem(getStorageKey(userKey), JSON.stringify(conversations.slice(0, 20)));
 };
+
+const mapBackendConversation = (conversation) => ({
+  sessionId: conversation.session_id,
+  title: conversation.title,
+  createdAt: conversation.created_at,
+  updatedAt: conversation.updated_at,
+  messages: [
+    createWelcomeMessage(),
+    ...conversation.messages.map((message) => ({
+      id: `db-${message.id}`,
+      from: message.role === 'user' ? 'user' : 'bot',
+      text: message.content,
+    })),
+  ],
+});
 
 const toHistory = (messages) =>
   messages
@@ -54,17 +72,22 @@ const getConversationTitle = (text) => {
 };
 
 const ChatbotWidget = () => {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const userKey = isAuthenticated && user?.id ? String(user.id) : 'guest';
+
   const [isOpen, setIsOpen] = useState(false);
-  const [conversations, setConversations] = useState(loadConversations);
+  const [conversations, setConversations] = useState(() => loadConversationsFromStorage('guest'));
   const [activeSessionId, setActiveSessionId] = useState(() => {
-    const savedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
-    const loaded = loadConversations();
-    return savedSessionId || loaded[0]?.sessionId || createConversation().sessionId;
+    const loaded = loadConversationsFromStorage('guest');
+    return localStorage.getItem(getActiveSessionKey('guest')) || loaded[0]?.sessionId || createConversation().sessionId;
   });
   const [isTyping, setIsTyping] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
   const bottomRef = useRef(null);
+  const renameInputRef = useRef(null);
 
   const activeConversation = useMemo(() => {
     return conversations.find((item) => item.sessionId === activeSessionId) || conversations[0];
@@ -78,15 +101,55 @@ const ChatbotWidget = () => {
     return conversations.filter((item) => item.title.toLowerCase().includes(keyword));
   }, [conversations, searchText]);
 
+  const loadUserConversations = useCallback(async () => {
+    if (isAuthenticated && user?.id) {
+      setIsLoadingHistory(true);
+      try {
+        const response = await api.get('/health/chat/conversations');
+        const mapped = (response.data || []).map(mapBackendConversation);
+        const nextConversations = mapped.length ? mapped : [createConversation()];
+        setConversations(nextConversations);
+        const savedSessionId = localStorage.getItem(getActiveSessionKey(userKey));
+        const hasSavedSession = nextConversations.some((item) => item.sessionId === savedSessionId);
+        setActiveSessionId(hasSavedSession ? savedSessionId : nextConversations[0].sessionId);
+      } catch (error) {
+        console.warn('Không tải được lịch sử chat từ server:', error);
+        const fallback = loadConversationsFromStorage(userKey);
+        setConversations(fallback);
+        setActiveSessionId(
+          localStorage.getItem(getActiveSessionKey(userKey)) || fallback[0]?.sessionId || createConversation().sessionId
+        );
+      } finally {
+        setIsLoadingHistory(false);
+      }
+      return;
+    }
+
+    const guestConversations = loadConversationsFromStorage('guest');
+    setConversations(guestConversations);
+    setActiveSessionId(
+      localStorage.getItem(getActiveSessionKey('guest')) || guestConversations[0]?.sessionId || createConversation().sessionId
+    );
+  }, [isAuthenticated, user?.id, userKey]);
+
   useEffect(() => {
-    saveConversations(conversations);
-  }, [conversations]);
+    loadUserConversations();
+    setEditingSessionId(null);
+    setEditTitle('');
+    setSearchText('');
+  }, [loadUserConversations]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      saveConversationsToStorage('guest', conversations);
+    }
+  }, [conversations, isAuthenticated]);
 
   useEffect(() => {
     if (activeSessionId) {
-      localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+      localStorage.setItem(getActiveSessionKey(userKey), activeSessionId);
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, userKey]);
 
   useEffect(() => {
     const openChat = () => setIsOpen(true);
@@ -99,6 +162,13 @@ const ChatbotWidget = () => {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [isOpen, messages, isTyping]);
+
+  useEffect(() => {
+    if (editingSessionId) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [editingSessionId]);
 
   const updateConversation = (sessionId, updater) => {
     setConversations((prev) =>
@@ -115,9 +185,18 @@ const ChatbotWidget = () => {
     setConversations((prev) => [nextConversation, ...prev]);
     setActiveSessionId(nextConversation.sessionId);
     setSearchText('');
+    setEditingSessionId(null);
   };
 
-  const handleDeleteConversation = (sessionId) => {
+  const handleDeleteConversation = async (sessionId) => {
+    if (isAuthenticated) {
+      try {
+        await api.delete(`/health/chat/sessions/${sessionId}`);
+      } catch (error) {
+        console.warn('Không xóa được cuộc trò chuyện trên server:', error);
+      }
+    }
+
     setConversations((prev) => {
       const next = prev.filter((conversation) => conversation.sessionId !== sessionId);
       if (activeSessionId === sessionId) {
@@ -127,6 +206,40 @@ const ChatbotWidget = () => {
       }
       return next.length ? next : [createConversation()];
     });
+    if (editingSessionId === sessionId) {
+      setEditingSessionId(null);
+      setEditTitle('');
+    }
+  };
+
+  const startRenameConversation = (conversation) => {
+    setEditingSessionId(conversation.sessionId);
+    setEditTitle(conversation.title);
+  };
+
+  const cancelRenameConversation = () => {
+    setEditingSessionId(null);
+    setEditTitle('');
+  };
+
+  const submitRenameConversation = async (sessionId) => {
+    const title = editTitle.trim();
+    if (!title) {
+      cancelRenameConversation();
+      return;
+    }
+
+    updateConversation(sessionId, (conversation) => ({ ...conversation, title }));
+
+    if (isAuthenticated) {
+      try {
+        await api.patch(`/health/chat/sessions/${sessionId}`, { title });
+      } catch (error) {
+        console.warn('Không đổi tên được cuộc trò chuyện trên server:', error);
+      }
+    }
+
+    cancelRenameConversation();
   };
 
   const uploadDocuments = async (files) => {
@@ -269,31 +382,73 @@ const ChatbotWidget = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 pb-3">
+          {isLoadingHistory && (
+            <div className="px-3 py-2 text-xs text-slate-400">Đang tải lịch sử...</div>
+          )}
           {filteredConversations.map((conversation) => {
             const isActive = conversation.sessionId === activeSessionId;
+            const isEditing = editingSessionId === conversation.sessionId;
+
             return (
               <div key={conversation.sessionId} className="group mb-1 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveSessionId(conversation.sessionId)}
-                  className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm transition ${
-                    isActive ? 'bg-red-500 text-white shadow-md' : 'text-slate-600 hover:bg-white hover:text-red-500'
-                  }`}
-                  title={conversation.title}
-                >
-                  <div className="truncate font-medium">{conversation.title}</div>
-                  <div className={`mt-0.5 text-[11px] ${isActive ? 'text-red-100' : 'text-slate-400'}`}>
-                    {new Date(conversation.updatedAt).toLocaleDateString('vi-VN')}
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteConversation(conversation.sessionId)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-                  aria-label="Xóa cuộc trò chuyện"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {isEditing ? (
+                  <form
+                    className="min-w-0 flex-1"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitRenameConversation(conversation.sessionId);
+                    }}
+                  >
+                    <input
+                      ref={renameInputRef}
+                      value={editTitle}
+                      onChange={(event) => setEditTitle(event.target.value)}
+                      onBlur={() => submitRenameConversation(conversation.sessionId)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          cancelRenameConversation();
+                        }
+                      }}
+                      maxLength={120}
+                      className="w-full rounded-xl border border-red-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+                    />
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSessionId(conversation.sessionId)}
+                    className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm transition ${
+                      isActive ? 'bg-red-500 text-white shadow-md' : 'text-slate-600 hover:bg-white hover:text-red-500'
+                    }`}
+                    title={conversation.title}
+                  >
+                    <div className="truncate font-medium">{conversation.title}</div>
+                    <div className={`mt-0.5 text-[11px] ${isActive ? 'text-red-100' : 'text-slate-400'}`}>
+                      {new Date(conversation.updatedAt).toLocaleDateString('vi-VN')}
+                    </div>
+                  </button>
+                )}
+                {!isEditing && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => startRenameConversation(conversation)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-slate-100 hover:text-red-500 group-hover:opacity-100"
+                      aria-label="Đổi tên cuộc trò chuyện"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteConversation(conversation.sessionId)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                      aria-label="Xóa cuộc trò chuyện"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
               </div>
             );
           })}
@@ -307,7 +462,9 @@ const ChatbotWidget = () => {
               <Bot size={20} />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold text-slate-900">Baymax Chat</h2>
+              <h2 className="truncate text-sm font-semibold text-slate-900">
+                {activeConversation?.title || 'Baymax Chat'}
+              </h2>
               <p className="truncate text-xs text-slate-500">
                 {isAuthenticated
                   ? 'Chatbot thông minh hỗ trợ sức khỏe'

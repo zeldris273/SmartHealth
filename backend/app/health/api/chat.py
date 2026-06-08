@@ -1,15 +1,24 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.health.core.calories_calculator import process_calories
 from app.health.core.config import settings
-from app.health.models import BMIRecord, ChatMessage, User
-from app.health.schemas.chat import ChatHistoryItem, ChatMessageResponse, ChatRequest, ChatResponse
+from app.health.models import BMIRecord, ChatMessage, ChatSession, User
+from app.health.schemas.chat import (
+    ChatConversationMessage,
+    ChatConversationResponse,
+    ChatHistoryItem,
+    ChatMessageResponse,
+    ChatRequest,
+    ChatResponse,
+    ChatSessionUpdateRequest,
+)
 from app.health.services.chat_service import ask_ai
 from app.health.services.rag_service import format_retrieved_context, search_relevant_chunks
 from database import get_db
@@ -146,6 +155,52 @@ def build_health_context(user: User | None, latest_bmi: BMIRecord | None, bmi_hi
     return "\n".join(lines)
 
 
+DEFAULT_SESSION_TITLE = "Cuộc trò chuyện mới"
+
+
+def derive_session_title(text: str) -> str:
+    clean = " ".join(text.split()).strip()
+    if not clean:
+        return "Tài liệu đã tải lên"
+    return clean[:34] + "..." if len(clean) > 34 else clean
+
+
+def get_chat_session(db: Session, user_id: int, session_id: str) -> ChatSession | None:
+    return (
+        db.query(ChatSession)
+        .filter(ChatSession.user_id == user_id, ChatSession.session_id == session_id)
+        .first()
+    )
+
+
+def ensure_chat_session(
+    db: Session,
+    user_id: int,
+    session_id: str,
+    first_user_message: str | None = None,
+) -> ChatSession:
+    session = get_chat_session(db, user_id, session_id)
+    now = datetime.now(timezone.utc)
+
+    if session is None:
+        title = derive_session_title(first_user_message) if first_user_message else DEFAULT_SESSION_TITLE
+        session = ChatSession(
+            user_id=user_id,
+            session_id=session_id,
+            title=title,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(session)
+        return session
+
+    if session.title == DEFAULT_SESSION_TITLE and first_user_message:
+        session.title = derive_session_title(first_user_message)
+
+    session.updated_at = now
+    return session
+
+
 def save_chat_pair(
     db: Session,
     user_id: int,
@@ -155,6 +210,7 @@ def save_chat_pair(
     provider: str,
     model_name: str,
 ) -> None:
+    ensure_chat_session(db, user_id, session_id, user_message)
     db.add(
         ChatMessage(
             user_id=user_id,
@@ -176,6 +232,57 @@ def save_chat_pair(
         )
     )
     db.commit()
+
+
+def build_conversation_response(db: Session, user_id: int, session: ChatSession) -> ChatConversationResponse:
+    messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == user_id, ChatMessage.session_id == session.session_id)
+        .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
+        .all()
+    )
+    return ChatConversationResponse(
+        session_id=session.session_id,
+        title=session.title,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        messages=[ChatConversationMessage.model_validate(message) for message in messages],
+    )
+
+
+def get_or_create_legacy_session(
+    db: Session,
+    user_id: int,
+    session_id: str,
+    first_message_at: datetime,
+    last_message_at: datetime,
+) -> ChatSession:
+    session = get_chat_session(db, user_id, session_id)
+    if session:
+        return session
+
+    first_user_message = (
+        db.query(ChatMessage)
+        .filter(
+            ChatMessage.user_id == user_id,
+            ChatMessage.session_id == session_id,
+            ChatMessage.role == "user",
+        )
+        .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
+        .first()
+    )
+    title = derive_session_title(first_user_message.content) if first_user_message else DEFAULT_SESSION_TITLE
+    session = ChatSession(
+        user_id=user_id,
+        session_id=session_id,
+        title=title,
+        created_at=first_message_at,
+        updated_at=last_message_at,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
 
 
 @router.post(
@@ -269,3 +376,118 @@ def get_chat_history(
         query = query.filter(ChatMessage.session_id == session_id)
 
     return query.order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc()).all()
+
+
+@router.get(
+    "/chat/conversations",
+    response_model=list[ChatConversationResponse],
+    summary="Lấy danh sách cuộc trò chuyện của user hiện tại",
+    status_code=status.HTTP_200_OK,
+)
+def get_chat_conversations(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cần đăng nhập để xem lịch sử chat.",
+        )
+
+    sessions = (
+        db.query(ChatSession)
+        .filter(ChatSession.user_id == current_user.id)
+        .order_by(ChatSession.updated_at.desc(), ChatSession.id.desc())
+        .all()
+    )
+
+    known_session_ids = {session.session_id for session in sessions}
+    legacy_sessions = (
+        db.query(
+            ChatMessage.session_id.label("session_id"),
+            func.min(ChatMessage.created_at).label("created_at"),
+            func.max(ChatMessage.created_at).label("updated_at"),
+        )
+        .filter(ChatMessage.user_id == current_user.id)
+        .group_by(ChatMessage.session_id)
+        .all()
+    )
+
+    for legacy in legacy_sessions:
+        if legacy.session_id in known_session_ids:
+            continue
+        sessions.append(
+            get_or_create_legacy_session(
+                db,
+                current_user.id,
+                legacy.session_id,
+                legacy.created_at,
+                legacy.updated_at,
+            )
+        )
+
+    sessions.sort(key=lambda item: item.updated_at or item.created_at, reverse=True)
+    return [build_conversation_response(db, current_user.id, session) for session in sessions]
+
+
+@router.patch(
+    "/chat/sessions/{session_id}",
+    response_model=ChatConversationResponse,
+    summary="Đổi tên cuộc trò chuyện",
+    status_code=status.HTTP_200_OK,
+)
+def rename_chat_session(
+    session_id: str,
+    request: ChatSessionUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cần đăng nhập để đổi tên cuộc trò chuyện.",
+        )
+
+    session = get_chat_session(db, current_user.id, session_id)
+    if session is None:
+        has_messages = (
+            db.query(ChatMessage.id)
+            .filter(ChatMessage.user_id == current_user.id, ChatMessage.session_id == session_id)
+            .first()
+        )
+        if not has_messages:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy cuộc trò chuyện.")
+        session = ensure_chat_session(db, current_user.id, session_id)
+
+    session.title = request.title.strip()
+    session.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(session)
+    return build_conversation_response(db, current_user.id, session)
+
+
+@router.delete(
+    "/chat/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Xóa cuộc trò chuyện",
+)
+def delete_chat_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cần đăng nhập để xóa cuộc trò chuyện.",
+        )
+
+    db.query(ChatMessage).filter(
+        ChatMessage.user_id == current_user.id,
+        ChatMessage.session_id == session_id,
+    ).delete(synchronize_session=False)
+    db.query(ChatSession).filter(
+        ChatSession.user_id == current_user.id,
+        ChatSession.session_id == session_id,
+    ).delete(synchronize_session=False)
+    db.commit()
