@@ -19,7 +19,8 @@ HEALTH_KEYWORDS = {
     "dinh dưỡng", "dinh duong", "ăn", "an", "uống", "uong", "tập luyện", "tap luyen",
     "thể dục", "the duc", "giảm cân", "giam can", "tăng cân", "tang can", "ngủ", "ngu",
     "tim", "huyết áp", "huyet ap", "đường huyết", "duong huyet", "tiểu đường", "tieu duong",
-    "stress", "căng thẳng", "cang thang", "mệt", "met", "dị ứng", "di ung",
+    "stress", "căng thẳng", "cang thang", "mệt", "met", "dị ứng", "di ung", "tăng cơ", "tang co",
+    "protein", "carb", "chất béo", "chat beo", "tdee", "bmr",
 }
 
 
@@ -41,18 +42,15 @@ def get_ai_provider() -> str:
 
 
 def get_model_name(provider: str) -> str:
-    # Mặc định dùng OpenAI vì Gemini đã bị loại bỏ
     return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
 
 
 def is_health_related(message: str) -> bool:
-    """Kiểm tra nhanh để chặn câu hỏi ngoài phạm vi sức khỏe trước khi gọi AI."""
     normalized = message.strip().lower()
     return any(keyword in normalized for keyword in HEALTH_KEYWORDS)
 
 
 def is_health_related_with_context(message: str, history: list[ChatHistoryItem] | None = None) -> bool:
-    """Cho phep cau hoi follow-up ngan neu lich su gan day dang noi ve suc khoe."""
     if is_health_related(message):
         return True
 
@@ -72,17 +70,24 @@ def get_bmi_category_vi(bmi: float | None) -> str | None:
     return "Béo phì"
 
 
-def build_prompt(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> str:
+def build_prompt(
+    message: str,
+    bmi: float | None = None,
+    history: list[ChatHistoryItem] | None = None,
+    health_context: str | None = None,
+    retrieved_context: str | None = None,
+) -> str:
     history = history or []
-    history_text = "\n".join(
-        f"{item.role}: {item.content}" for item in history[-10:]
-    )
+    history_text = "\n".join(f"{item.role}: {item.content}" for item in history[-10:])
 
     if bmi:
         category = get_bmi_category_vi(bmi)
         bmi_text = f"BMI hiện tại của người dùng: {bmi} ({category})."
     else:
         bmi_text = "Người dùng chưa có dữ liệu BMI hoặc chưa đăng nhập."
+
+    health_context = health_context or bmi_text
+    retrieved_context = retrieved_context or "Không có tài liệu liên quan được truy xuất."
 
     return f"""
 Bạn là chatbot hỗ trợ sức khỏe cho hệ thống SmartHealth.
@@ -94,10 +99,14 @@ Nguyên tắc bắt buộc:
 - Không chẩn đoán chắc chắn bệnh.
 - Không kê đơn thuốc, không chỉ định liều thuốc nguy hiểm.
 - Với triệu chứng nặng như khó thở, đau ngực, ngất, chảy máu nhiều, sốt cao kéo dài, hãy khuyên người dùng đi khám/cấp cứu.
-- Nếu có BMI, hãy cá nhân hóa lời khuyên dựa trên BMI đó.
+- Ưu tiên sử dụng ngữ cảnh tài liệu được truy xuất nếu phù hợp, nhưng không bịa nguồn hoặc nội dung không có trong tài liệu.
+- Luôn kết hợp câu hỏi hiện tại với hồ sơ sức khỏe cá nhân khi có dữ liệu.
 
-Thông tin người dùng:
-{bmi_text}
+Thông tin sức khỏe cá nhân:
+{health_context}
+
+Ngữ cảnh tài liệu truy xuất từ pgvector:
+{retrieved_context}
 
 Lịch sử hội thoại gần đây:
 {history_text if history_text else "Không có."}
@@ -108,16 +117,14 @@ Câu hỏi hiện tại:
 
 
 def _ask_openai(prompt: str) -> AIResult:
-    # Thử cả hai variant của API KEY
-    api_key = (getattr(settings, "OPENAI_API_KEY", None) or 
-               getattr(settings, "OPEN_API_KEY", None))
-    
+    api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
+
     if not api_key or api_key in ["your-openai-api-key-here", ""]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OPENAI_API_KEY chưa được cấu hình trong file .env.",
         )
-    
+
     if OpenAI is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -126,34 +133,42 @@ def _ask_openai(prompt: str) -> AIResult:
 
     model_name = get_model_name("openai")
     client = OpenAI(api_key=api_key)
-    
-    # Sử dụng chuẩn Chat Completion của OpenAI v1.x với timeout 20s
+
     response = client.chat.completions.create(
         model=model_name,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
+        messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
         timeout=20.0,
     )
-    
+
     reply = response.choices[0].message.content
     if not reply:
         raise ValueError("OpenAI không trả về nội dung phản hồi.")
-    
+
     return AIResult(reply=reply.strip(), provider="openai", model=model_name)
 
 
-def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> AIResult:
+def ask_ai(
+    message: str,
+    bmi: float | None = None,
+    history: list[ChatHistoryItem] | None = None,
+    health_context: str | None = None,
+    retrieved_context: str | None = None,
+) -> AIResult:
     if not is_health_related_with_context(message, history):
         provider = get_ai_provider()
         return AIResult(reply=OFF_TOPIC_RESPONSE, provider=provider, model=get_model_name(provider))
 
-    prompt = build_prompt(message, bmi, history)
+    prompt = build_prompt(
+        message=message,
+        bmi=bmi,
+        history=history,
+        health_context=health_context,
+        retrieved_context=retrieved_context,
+    )
     provider = get_ai_provider()
 
     try:
-        # Hệ thống giờ đây chỉ hỗ trợ OpenAI
         return _ask_openai(prompt)
     except HTTPException:
         raise

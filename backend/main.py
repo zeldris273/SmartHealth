@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.health.api.auth import router as auth_router
 from app.health.api.google_oauth import router as google_oauth_router
@@ -8,9 +9,14 @@ from app.health.api.bmi import router as bmi_router
 from app.health.api.calories import router as calories_router
 from app.health.api.health_tips import router as health_tips_router
 from app.health.api.chat import router as chat_router
+from app.health.api.documents import router as documents_router
 from app.health.api.otp import router as otp_router
 
 from database import Base, engine
+
+if engine.dialect.name == "postgresql":
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 Base.metadata.create_all(bind=engine)
 
@@ -43,6 +49,7 @@ app.include_router(bmi_router)
 app.include_router(calories_router)
 app.include_router(health_tips_router)
 app.include_router(chat_router)
+app.include_router(documents_router)
 app.include_router(otp_router)
 app.include_router(google_oauth_router)
 

@@ -1,13 +1,3 @@
-"""
-test_chatbot.py
-================
-Unit tests cho chatbot backend.
-Chạy: pytest backend/app/health/tests/test_chatbot.py -v
-"""
-
-from fastapi import HTTPException
-import pytest
-
 from app.health.schemas.chat import ChatHistoryItem
 from app.health.services import chat_service
 from app.health.services.chat_service import (
@@ -42,16 +32,21 @@ def test_bmi_category_vi():
     assert get_bmi_category_vi(31.0) == "Béo phì"
 
 
-def test_build_prompt_contains_bmi_category_and_history():
+def test_build_prompt_contains_bmi_history_health_context_and_rag_context():
     prompt = build_prompt(
-        message="Tôi muốn giảm cân an toàn",
-        bmi=27.5,
+        message="Tôi muốn tăng cơ an toàn",
+        bmi=22.0,
         history=[ChatHistoryItem(role="user", content="Tôi cao 170cm")],
+        health_context="BMI hiện tại: 22.0\nTDEE ước tính: 2300 kcal/ngày\nMục tiêu: tăng cơ",
+        retrieved_context="[Tài liệu: nutrition.pdf | chunk 1]\nProtein hỗ trợ phục hồi cơ.",
     )
 
-    assert "BMI hiện tại của người dùng: 27.5 (Thừa cân)" in prompt
+    assert "BMI hiện tại: 22.0" in prompt
+    assert "TDEE ước tính: 2300 kcal/ngày" in prompt
+    assert "nutrition.pdf" in prompt
+    assert "Protein hỗ trợ phục hồi cơ." in prompt
     assert "user: Tôi cao 170cm" in prompt
-    assert "Tôi muốn giảm cân an toàn" in prompt
+    assert "Tôi muốn tăng cơ an toàn" in prompt
 
 
 def test_ask_ai_blocks_off_topic_before_api_call(monkeypatch):
@@ -100,7 +95,7 @@ def test_ask_ai_openai_success_with_mocked_client(monkeypatch):
 
 def test_ask_ai_allows_contextual_health_follow_up(monkeypatch):
     class FakeMessage:
-        content = "Ban nen nghi ngoi, uong du nuoc va theo doi nhiet do."
+        content = "Bạn nên nghỉ ngơi, uống đủ nước và theo dõi nhiệt độ."
 
     class FakeChoice:
         message = FakeMessage()
@@ -135,4 +130,4 @@ def test_ask_ai_allows_contextual_health_follow_up(monkeypatch):
     )
 
     assert result.provider == "openai"
-    assert "uong du nuoc" in result.reply
+    assert "uống đủ nước" in result.reply

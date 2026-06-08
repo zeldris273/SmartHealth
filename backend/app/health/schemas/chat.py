@@ -30,6 +30,10 @@ class ChatRequest(BaseModel):
         True,
         description="Nếu đã đăng nhập, backend sẽ lưu câu hỏi và câu trả lời vào database.",
     )
+    use_rag: bool = Field(
+        True,
+        description="Nếu đã đăng nhập, backend sẽ semantic search trên tài liệu đã upload.",
+    )
 
 
 class ChatResponse(BaseModel):
@@ -39,6 +43,7 @@ class ChatResponse(BaseModel):
     session_id: str = Field(..., description="Mã phiên chat")
     bmi: float | None = Field(None, description="BMI chatbot đã dùng trong prompt, nếu có")
     saved: bool = Field(False, description="True nếu lịch sử chat đã được lưu vào database")
+    sources: list[str] = Field(default_factory=list, description="Tài liệu/chunks RAG đã được dùng")
 
 
 class ChatMessageResponse(BaseModel):

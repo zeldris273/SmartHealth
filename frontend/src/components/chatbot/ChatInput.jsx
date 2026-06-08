@@ -8,43 +8,26 @@ const formatFileSize = (size) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const readFileContent = (file) =>
-  new Promise((resolve) => {
-    const isTextLike =
-      file.type.startsWith('text/') ||
-      ['application/json', 'application/xml', 'text/csv'].includes(file.type) ||
-      /\.(txt|md|csv|json|xml|py|js|jsx|ts|tsx|html|css)$/i.test(file.name);
-
-    if (!isTextLike || file.size > 1024 * 1024) {
-      resolve('');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || '').slice(0, 12000));
-    reader.onerror = () => resolve('');
-    reader.readAsText(file);
-  });
-
 const ChatInput = ({ onSend, disabled = false }) => {
   const [text, setText] = useState('');
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
 
-  const handleFileChange = async (event) => {
+  const handleFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files || []);
     if (!selectedFiles.length) return;
 
-    const mappedFiles = await Promise.all(
-      selectedFiles.slice(0, 5).map(async (file) => ({
+    const mappedFiles = selectedFiles
+      .filter((file) => /\.(pdf|docx|txt)$/i.test(file.name))
+      .slice(0, 5)
+      .map((file) => ({
         id: `${file.name}-${file.size}-${file.lastModified}`,
         name: file.name,
         size: file.size,
         sizeLabel: formatFileSize(file.size),
         type: file.type || 'unknown',
-        content: await readFileContent(file),
-      }))
-    );
+        rawFile: file,
+      }));
 
     setFiles((prev) => [...prev, ...mappedFiles].slice(0, 5));
     event.target.value = '';
@@ -58,7 +41,7 @@ const ChatInput = ({ onSend, disabled = false }) => {
     const cleanText = text.trim();
     if ((!cleanText && files.length === 0) || disabled) return;
 
-    onSend(cleanText || 'Tôi đã tải file lên, hãy hỗ trợ tôi xem nội dung này.', files);
+    onSend(cleanText || 'Tôi đã tải tài liệu lên, hãy dùng nội dung đó để tư vấn cho tôi.', files);
     setText('');
     setFiles([]);
   };
@@ -92,21 +75,21 @@ const ChatInput = ({ onSend, disabled = false }) => {
         </div>
       )}
 
-      <div className="flex items-end gap-2 rounded-3xl border border-slate-200 bg-slate-50 p-2 focus-within:border-slate-400 focus-within:bg-white">
+      <div className="flex items-end gap-2 rounded-3xl border border-slate-200 bg-slate-50 p-2 focus-within:border-red-300 focus-within:bg-white">
         <input
           ref={fileInputRef}
           type="file"
           multiple
           className="hidden"
           onChange={handleFileChange}
-          accept=".txt,.md,.csv,.json,.xml,.py,.js,.jsx,.ts,.tsx,.html,.css,.pdf,.doc,.docx,.png,.jpg,.jpeg"
+          accept=".pdf,.docx,.txt"
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Tải file lên"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Tải tài liệu lên"
         >
           <Paperclip size={18} />
         </button>
@@ -124,14 +107,14 @@ const ChatInput = ({ onSend, disabled = false }) => {
           onClick={handleSend}
           disabled={disabled || (!text.trim() && files.length === 0)}
           aria-label="Gửi tin nhắn"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           <Send size={17} />
         </button>
       </div>
 
       <p className="mt-2 px-2 text-[11px] text-slate-400">
-        Hỗ trợ đọc nội dung file text/code nhỏ. PDF/ảnh sẽ được gửi kèm tên file để chatbot biết ngữ cảnh.
+        Hỗ trợ PDF, DOCX, TXT. File sẽ được xử lý bằng RAG và lưu vào kho kiến thức cá nhân.
       </p>
     </div>
   );
