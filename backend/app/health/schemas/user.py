@@ -52,10 +52,9 @@ class UserProfileUpdate(BaseModel):
     phone_number: str | None = Field(None, min_length=9, max_length=15)
     gender: Literal["male", "female", "other"] | None = None
     date_of_birth: date | None = None
+    age: int | None = Field(None, ge=1, le=150)
     national_id: str | None = Field(None, min_length=9, max_length=20)
     address: str | None = Field(None, max_length=255)
-    weight: int | None = Field(None, ge=1, le=500)
-    height: int | None = Field(None, ge=1, le=300)
     fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
 
 
@@ -71,6 +70,7 @@ class UserResponse(BaseModel):
     phone_number: str | None = None
     gender: str | None = None
     date_of_birth: date | None = None
+    age: int | None = None
     national_id: str | None = None
     address: str | None = None
     weight: int | None = None

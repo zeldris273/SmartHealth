@@ -20,10 +20,9 @@ const Profile = () => {
     phone_number: '',
     gender: '',
     date_of_birth: '',
+    age: '',
     national_id: '',
     address: '',
-    weight: '',
-    height: '',
     fitness_goal: '',
     avatar: ''
   });
@@ -54,10 +53,9 @@ const Profile = () => {
       phone_number: user?.phone_number || '',
       gender: user?.gender || '',
       date_of_birth: user?.date_of_birth || '',
+      age: user?.age || '',
       national_id: user?.national_id || '',
       address: user?.address || '',
-      weight: user?.weight || '',
-      height: user?.height || '',
       fitness_goal: user?.fitness_goal || '',
       avatar: user?.avatar || ''
     });
@@ -86,10 +84,9 @@ const Profile = () => {
       phone_number: formData.phone_number || null,
       gender: formData.gender || null,
       date_of_birth: formData.date_of_birth || null,
+      age: formData.age ? parseInt(formData.age) : null,
       national_id: formData.national_id || null,
       address: formData.address || null,
-      weight: formData.weight ? parseInt(formData.weight) : null,
-      height: formData.height ? parseInt(formData.height) : null,
       fitness_goal: formData.fitness_goal || null,
     };
     const result = await updateProfile(payload);
@@ -126,9 +123,7 @@ const Profile = () => {
       'phone_number',
       'date_of_birth',
       'national_id',
-      'address',
-      'weight',
-      'height'
+      'address'
     ];
     return requiredFields.every(field => user[field] && user[field] !== '');
   };
@@ -338,22 +333,13 @@ const Profile = () => {
                   {isEditing ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 animate-in fade-in slide-in-from-left-4 duration-300">
                       <Input
-                        label="Cân nặng (kg)"
-                        name="weight"
+                        label="Tuổi"
+                        name="age"
                         type="number"
-                        icon={Activity}
-                        value={formData.weight}
+                        icon={Calendar}
+                        value={formData.age}
                         onChange={handleChange}
-                        placeholder="Nhập cân nặng"
-                      />
-                      <Input
-                        label="Chiều cao (cm)"
-                        name="height"
-                        type="number"
-                        icon={Activity}
-                        value={formData.height}
-                        onChange={handleChange}
-                        placeholder="Nhập chiều cao"
+                        placeholder="Nhập tuổi"
                       />
 
                       {/* Giới tính */}
@@ -407,22 +393,13 @@ const Profile = () => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 animate-in fade-in duration-300">
-                      {/* Cân nặng */}
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Cân nặng</p>
-                        <p className={`text-2xl font-bold ${user?.weight ? 'text-slate-800' : 'text-slate-300'}`}>
-                          {user?.weight ? user.weight : '—'}
+                      {/* Tuổi */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Tuổi</p>
+                        <p className={`text-2xl font-bold ${user?.age ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {user?.age ? user.age : '—'}
                         </p>
-                        {user?.weight && <p className="text-xs text-slate-500 mt-1">kg</p>}
-                      </div>
-
-                      {/* Chiều cao */}
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Chiều cao</p>
-                        <p className={`text-2xl font-bold ${user?.height ? 'text-slate-800' : 'text-slate-300'}`}>
-                          {user?.height ? user.height : '—'}
-                        </p>
-                        {user?.height && <p className="text-xs text-slate-500 mt-1">cm</p>}
+                        {user?.age && <p className="text-xs text-slate-500 mt-1">tuổi</p>}
                       </div>
 
                       {/* BMI */}
@@ -458,6 +435,24 @@ const Profile = () => {
                         <p className={`text-base font-medium ${user?.gender ? 'text-slate-800' : 'text-slate-400 italic'}`}>
                           {user?.gender === 'male' ? 'Nam' : user?.gender === 'female' ? 'Nữ' : user?.gender === 'other' ? 'Khác' : 'Chưa cung cấp'}
                         </p>
+                      </div>
+
+                      {/* Cân nặng */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Cân nặng</p>
+                        <p className={`text-2xl font-bold ${user?.weight ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {user?.weight ? user.weight : '—'}
+                        </p>
+                        {user?.weight && <p className="text-xs text-slate-500 mt-1">kg</p>}
+                      </div>
+
+                      {/* Chiều cao */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Chiều cao</p>
+                        <p className={`text-2xl font-bold ${user?.height ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {user?.height ? user.height : '—'}
+                        </p>
+                        {user?.height && <p className="text-xs text-slate-500 mt-1">cm</p>}
                       </div>
 
                       {/* Mục tiêu */}

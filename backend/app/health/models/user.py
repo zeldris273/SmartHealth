@@ -19,6 +19,7 @@ class User(Base):
     phone_number = Column(String(15), nullable=True)
     gender = Column(String(10), nullable=True)
     date_of_birth = Column(Date, nullable=True)
+    age = Column(Integer, nullable=True, comment="Tuổi")
     national_id = Column(String(20), unique=True, nullable=True)
     address = Column(String(255), nullable=True)
     weight = Column(Integer, nullable=True, comment="Cân nặng (kg)")

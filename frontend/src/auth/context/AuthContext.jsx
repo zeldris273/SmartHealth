@@ -270,9 +270,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshProfile = async () => {
+    try {
+      const updatedUser = await getProfileAPI();
+      if (updatedUser?.id) {
+        setUser(updatedUser);
+        // Cache the updated profile
+        localStorage.setItem('user_profile', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+    } catch (error) {
+      console.error('Refresh profile error:', error);
+      // Silently fail - just log the error without showing toast
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
-      user, isAuthenticated, isLoading, login, register, logout, updateProfile, googleLogin,
+      user, isAuthenticated, isLoading, login, register, logout, updateProfile, refreshProfile, googleLogin,
       isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType
     }}>
       {children}
