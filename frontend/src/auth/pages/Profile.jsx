@@ -419,11 +419,6 @@ const Profile = () => {
                                 {bmiInfo.label}
                               </span>
                             )}
-                            {latestBMI && (
-                              <p className="text-xs text-slate-400 mt-2">
-                                Cập nhật: {new Date(latestBMI.created_at).toLocaleDateString('vi-VN')}
-                              </p>
-                            )}
                             {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Chưa có dữ liệu BMI</p>}
                           </>
                         )}
