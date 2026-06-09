@@ -33,6 +33,10 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # refresh_token không còn trả về trong JSON — được lưu trong HttpOnly cookie
+
+
+# RefreshTokenRequest không còn dùng vì /auth/refresh đọc refresh_token từ HttpOnly cookie
 
 
 # ==========================================
@@ -48,8 +52,10 @@ class UserProfileUpdate(BaseModel):
     phone_number: str | None = Field(None, min_length=9, max_length=15)
     gender: Literal["male", "female", "other"] | None = None
     date_of_birth: date | None = None
+    age: int | None = Field(None, ge=1, le=150)
     national_id: str | None = Field(None, min_length=9, max_length=20)
     address: str | None = Field(None, max_length=255)
+    fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
 
 
 # ==========================================
@@ -64,8 +70,14 @@ class UserResponse(BaseModel):
     phone_number: str | None = None
     gender: str | None = None
     date_of_birth: date | None = None
+    age: int | None = None
     national_id: str | None = None
     address: str | None = None
+    weight: int | None = None
+    height: int | None = None
+    fitness_goal: str | None = None
+    avatar_url: str | None = None
+    auth_provider: str = "local"
 
     # Thay class Config cũ bằng model_config chuẩn Pydantic v2 mới nhất
     model_config = ConfigDict(from_attributes=True)

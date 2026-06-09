@@ -1,9 +1,12 @@
 from fastapi import HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
+from jose import jwt, JWTError
 
 from app.health.services.google_auth_service import GoogleAuthService
+from app.health.core.config import settings
 from app.health.core.security import (
     create_access_token,
+    create_refresh_token,
     hash_password,
     verify_password,
 )
@@ -61,7 +64,7 @@ class AuthService:
         if user.auth_provider == "google":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This account uses Google Login",
+                detail="This account uses Google Login. Please sign in with Google.",
             )
 
         if not verify_password(password, user.password_hash):
@@ -74,9 +77,54 @@ class AuthService:
             subject=str(user.id),
             role=user.role,
         )
+        refresh_token = create_refresh_token(
+            subject=str(user.id),
+        )
 
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+        }
+
+    @staticmethod
+    def refresh_token(db: Session, token: str) -> dict:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+            )
+            if payload.get("type") != "refresh":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token type",
+                )
+            user_id = int(payload.get("sub"))
+        except (JWTError, TypeError, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token",
+            )
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        new_access_token = create_access_token(
+            subject=str(user.id),
+            role=user.role,
+        )
+        new_refresh_token = create_refresh_token(
+            subject=str(user.id),
+        )
+
+        return {
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
             "token_type": "bearer",
         }
 
@@ -187,7 +235,12 @@ class AuthService:
             # Cập nhật thông tin nếu user đã tồn tại
             user.google_id = google_id
             user.avatar_url = avatar_url
-            user.auth_provider = "google"
+            # Chỉ đổi auth_provider nếu user chưa có mật khẩu local
+            # Nếu đã có password_hash → cho phép cả 2 phương thức đăng nhập
+            if user.password_hash:
+                user.auth_provider = "both"
+            else:
+                user.auth_provider = "google"
             db.commit()
         
         # Tạo JWT token (sử dụng hàm helper `create_access_token` đã import)
@@ -195,8 +248,12 @@ class AuthService:
             subject=str(user.id),
             role=user.role,
         )
+        refresh_token = create_refresh_token(
+            subject=str(user.id),
+        )
         
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer"
         }

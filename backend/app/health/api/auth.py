@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, status, BackgroundTasks
+from fastapi import APIRouter, Depends, status, BackgroundTasks, Response, Request, HTTPException
 from sqlalchemy.orm import Session
 
+from app.health.core.config import settings
 from app.health.core.dependencies import get_current_user
 from database import get_db
 from app.health.models.user import User
@@ -9,19 +10,45 @@ from app.health.schemas.user import (
     UserLogin,
     UserRegister,
     UserResponse,
-    ForgotPasswordRequest, 
-    VerifyResetOTPRequest,  
-    ResetPasswordRequest,    
+    ForgotPasswordRequest,
+    VerifyResetOTPRequest,
+    ResetPasswordRequest,
+    GoogleLoginRequest,
 )
 from app.health.services.auth_service import AuthService
-from app.health.services.google_auth_service import GoogleAuthService
-from app.health.schemas.user import GoogleLoginRequest
 
 
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
+# Thời gian sống của refresh token cookie (giây)
+REFRESH_TOKEN_COOKIE_MAX_AGE = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    """Helper: ghi refresh token vào HttpOnly cookie."""
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,                      # JS không thể đọc được
+        secure=settings.COOKIE_SECURE,      # True trên HTTPS (production)
+        samesite="lax",                     # Bảo vệ CSRF cơ bản
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE,
+        path="/auth",                       # Chỉ gửi cookie khi gọi /auth/*
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    """Helper: xóa refresh token cookie."""
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="lax",
+        path="/auth",
+    )
 
 
 @router.post(
@@ -42,13 +69,64 @@ def register(
 )
 def login(
     payload: UserLogin,
+    response: Response,
     db: Session = Depends(get_db),
 ):
-    return AuthService.login(
-        db,
-        payload.email,
-        payload.password,
-    )
+    data = AuthService.login(db, payload.email, payload.password)
+    _set_refresh_cookie(response, data["refresh_token"])
+    # Chỉ trả access_token trong JSON — refresh_token ở trong cookie
+    return {
+        "access_token": data["access_token"],
+        "token_type": data["token_type"],
+    }
+
+
+@router.post(
+    "/refresh",
+    response_model=Token,
+)
+def refresh(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """
+    Đọc refresh token từ HttpOnly cookie (không cần body).
+    Trả access token mới + cập nhật cookie refresh token mới (rotation).
+    """
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found",
+        )
+
+    data = AuthService.refresh_token(db, refresh_token)
+    _set_refresh_cookie(response, data["refresh_token"])
+    return {
+        "access_token": data["access_token"],
+        "token_type": data["token_type"],
+    }
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+)
+def logout(response: Response):
+    """Xóa refresh token cookie — đăng xuất an toàn."""
+    _clear_refresh_cookie(response)
+    return {"message": "Logged out successfully"}
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+)
+def get_profile(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user
 
 
 # =================================================================
@@ -96,18 +174,26 @@ def reset_password(
     Bước 3: Xác thực lại mã OTP một lần nữa và tiến hành cập nhật mật khẩu mới vào DB.
     """
     return AuthService.reset_password(
-        db, 
-        payload.email, 
-        payload.otp_code, 
+        db,
+        payload.email,
+        payload.otp_code,
         payload.new_password
     )
 
-@router.post("/google-login", response_model=Token)
+
+@router.post(
+    "/google-login",
+    response_model=Token,
+)
 def google_login(
     payload: GoogleLoginRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ):
-    """
-    Nhận Google ID Token từ frontend, xác thực và trả về JWT access token
-    """
-    return AuthService.google_login(db, payload.token)
+    """Đăng nhập bằng Google token, set refresh cookie tương tự login thường."""
+    data = AuthService.google_login(db, payload.token)
+    _set_refresh_cookie(response, data["refresh_token"])
+    return {
+        "access_token": data["access_token"],
+        "token_type": data["token_type"],
+    }

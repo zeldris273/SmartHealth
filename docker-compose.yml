@@ -26,8 +26,6 @@ services:
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       AI_PROVIDER: ${AI_PROVIDER}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-${OPEN_API_KEY:-}}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       SMTP_HOST: ${SMTP_HOST}
@@ -35,6 +33,10 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-SmartHealth}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       OTP_EXPIRE_MINUTES: ${OTP_EXPIRE_MINUTES:-5}
       OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
     depends_on:
@@ -45,6 +47,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     container_name: smarthealth_frontend
     restart: always
     ports:

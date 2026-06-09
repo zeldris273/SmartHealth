@@ -16,6 +16,8 @@ class BMICalculateRequest(BaseModel):
     gender: Optional[Literal["male", "female", "other"]] = Field(
         None, description="Giới tính (tuỳ chọn): male | female | other"
     )
+    wrist_circumference_cm: Optional[float] = Field(None, gt=0, le=50, description="Vòng cổ tay (cm, tuỳ chọn)")
+    ankle_circumference_cm: Optional[float] = Field(None, gt=0, le=50, description="Vòng cổ chân (cm, tuỳ chọn)")
 
     @field_validator("weight_kg", "height_cm")
     @classmethod
@@ -51,9 +53,15 @@ class BMICalculateResponse(BaseModel):
 
     weight_kg: float
     height_cm: float
+    wrist_circumference_cm: Optional[float] = None
+    ankle_circumference_cm: Optional[float] = None
     bmi_value: float = Field(..., description="Giá trị BMI (làm tròn 2 chữ số)")
     bmi_category: str = Field(..., description="Phân loại theo WHO (tiếng Anh)")
     bmi_category_vi: str = Field(..., description="Phân loại theo WHO (tiếng Việt)")
+    wrist_to_height_ratio: Optional[float] = None
+    ankle_to_height_ratio: Optional[float] = None
+    body_frame_size: Optional[str] = None
+    healthy_weight_range_for_frame: Optional[str] = None
     healthy_bmi_range: str = Field(..., description="Khoảng BMI lý tưởng")
     healthy_weight_range_kg: str = Field(..., description="Khoảng cân nặng lý tưởng theo chiều cao")
     tips: list[BMIHealthTip] = Field(default_factory=list, description="Gợi ý sức khoẻ")
@@ -70,9 +78,15 @@ class BMIRecordResponse(BaseModel):
     height_cm: float
     age: Optional[int]
     gender: Optional[str]
+    wrist_circumference_cm: Optional[float]
+    ankle_circumference_cm: Optional[float]
     bmi_value: float
     bmi_category: str
     bmi_category_vi: str
+    wrist_to_height_ratio: Optional[float]
+    ankle_to_height_ratio: Optional[float]
+    body_frame_size: Optional[str] = None
+    healthy_weight_range_for_frame: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

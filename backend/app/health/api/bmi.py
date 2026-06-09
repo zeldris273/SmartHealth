@@ -53,6 +53,8 @@ def calculate_bmi(body: BMICalculateRequest):
             height_cm=body.height_cm,
             age=body.age,
             gender=body.gender,
+            wrist_circumference_cm=body.wrist_circumference_cm,
+            ankle_circumference_cm=body.ankle_circumference_cm,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -63,9 +65,15 @@ def calculate_bmi(body: BMICalculateRequest):
     return BMICalculateResponse(
         weight_kg=result.weight_kg,
         height_cm=result.height_cm,
+        wrist_circumference_cm=result.wrist_circumference_cm,
+        ankle_circumference_cm=result.ankle_circumference_cm,
         bmi_value=result.bmi_value,
         bmi_category=result.bmi_category,
         bmi_category_vi=result.bmi_category_vi,
+        wrist_to_height_ratio=result.wrist_to_height_ratio,
+        ankle_to_height_ratio=result.ankle_to_height_ratio,
+        body_frame_size=result.body_frame_size,
+        healthy_weight_range_for_frame=result.healthy_weight_range_for_frame,
         healthy_bmi_range=result.healthy_bmi_range,
         healthy_weight_range_kg=result.healthy_weight_range_kg,
         tips=[BMIHealthTip(**t) for t in result.tips],
@@ -103,6 +111,8 @@ def calculate_and_save_bmi(
             height_cm=body.height_cm,
             age=body.age,
             gender=body.gender,
+            wrist_circumference_cm=body.wrist_circumference_cm,
+            ankle_circumference_cm=body.ankle_circumference_cm,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -125,12 +135,17 @@ def calculate_and_save_bmi(
         existing_record.height_cm = result.height_cm
         existing_record.age = body.age
         existing_record.gender = body.gender
+        existing_record.wrist_circumference_cm = result.wrist_circumference_cm
+        existing_record.ankle_circumference_cm = result.ankle_circumference_cm
         existing_record.bmi_value = result.bmi_value
         existing_record.bmi_category = result.bmi_category
         existing_record.bmi_category_vi = result.bmi_category_vi
+        existing_record.wrist_to_height_ratio = result.wrist_to_height_ratio
+        existing_record.ankle_to_height_ratio = result.ankle_to_height_ratio
+        existing_record.body_frame_size = result.body_frame_size
+        existing_record.healthy_weight_range_for_frame = result.healthy_weight_range_for_frame
         db.commit()
         db.refresh(existing_record)
-        return existing_record
     else:
         # Nếu chưa có, tạo bản ghi mới
         record = BMIRecord(
@@ -139,14 +154,33 @@ def calculate_and_save_bmi(
             height_cm=result.height_cm,
             age=body.age,
             gender=body.gender,
+            wrist_circumference_cm=result.wrist_circumference_cm,
+            ankle_circumference_cm=result.ankle_circumference_cm,
             bmi_value=result.bmi_value,
             bmi_category=result.bmi_category,
             bmi_category_vi=result.bmi_category_vi,
+            wrist_to_height_ratio=result.wrist_to_height_ratio,
+            ankle_to_height_ratio=result.ankle_to_height_ratio,
+            body_frame_size=result.body_frame_size,
+            healthy_weight_range_for_frame=result.healthy_weight_range_for_frame,
         )
         db.add(record)
         db.commit()
         db.refresh(record)
-        return record
+    
+    # Update user profile with current weight and height
+    current_user.weight = int(result.weight_kg) if result.weight_kg else None
+    current_user.height = int(result.height_cm) if result.height_cm else None
+    
+    # Update gender if provided
+    if body.gender:
+        current_user.gender = body.gender
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    # Return the BMI record
+    return existing_record if existing_record else record
 
 
 # --------------------------------------------------------------------------- #
@@ -229,4 +263,40 @@ def get_weight_history(
     history_items.reverse()
 
     return WeightHistoryResponse(history=history_items)
+
+
+# --------------------------------------------------------------------------- #
+#  GET /health/bmi/latest  –  Lấy BMI record mới nhất của người dùng         #
+# --------------------------------------------------------------------------- #
+
+@router.get(
+    "/bmi/latest",
+    response_model=BMIRecordResponse,
+    summary="Lấy chỉ số BMI mới nhất",
+    description="Lấy bản ghi BMI mới nhất (lần tính gần đây nhất) của người dùng hiện tại. Yêu cầu đăng nhập.",
+    status_code=status.HTTP_200_OK,
+)
+def get_latest_bmi(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Trả về bản ghi BMI mới nhất của người dùng hiện tại.
+    Nếu không có bản ghi nào, trả về 404.
+    Yêu cầu đăng nhập.
+    """
+    record = (
+        db.query(BMIRecord)
+        .filter(BMIRecord.user_id == current_user.id)
+        .order_by(BMIRecord.created_at.desc())
+        .first()
+    )
+    
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chưa có bản ghi BMI nào. Vui lòng tính BMI trước."
+        )
+    
+    return record
 

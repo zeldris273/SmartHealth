@@ -1,34 +1,107 @@
-import { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Minus, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, MessageCircle, Minus, Plus, Search, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../auth/context/AuthContext';
 import api from '../../services/api';
 import ChatBubble from './ChatBubble';
 import ChatInput from './ChatInput';
 
-const initialMessages = [
-  {
-    id: 'welcome',
-    from: 'bot',
-    text: 'Xin chào, tôi là Baymax. Bạn cần tư vấn sức khỏe điều gì hôm nay?',
-  },
-];
+const STORAGE_KEY = 'smarthealth_chatbot_conversations';
+const ACTIVE_SESSION_KEY = 'chat_session_id';
+
+const createWelcomeMessage = () => ({
+  id: 'welcome',
+  from: 'bot',
+  text: 'Xin chào, tôi là Baymax. Bạn có thể hỏi về sức khỏe, BMI, chế độ ăn hoặc tải file lên để tôi hỗ trợ.',
+});
+
+const createConversation = () => ({
+  sessionId: crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : `session-${Date.now()}`,
+  title: 'Cuộc trò chuyện mới',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  messages: [createWelcomeMessage()],
+});
+
+const loadConversations = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch (error) {
+    console.warn('Không đọc được lịch sử chat local:', error);
+  }
+  return [createConversation()];
+};
+
+const saveConversations = (conversations) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 20)));
+};
 
 const toHistory = (messages) =>
   messages
     .filter((message) => !message.isError && message.text && (message.from === 'user' || message.from === 'bot'))
+    .filter((message) => message.id !== 'welcome')
     .slice(-10)
     .map((message) => ({
       role: message.from === 'user' ? 'user' : 'assistant',
       content: message.text,
     }));
 
+const buildMessageWithFiles = (text, files) => {
+  if (!files?.length) return text;
+
+  const fileContext = files
+    .map((file, index) => {
+      const content = file.content
+        ? `\nNội dung file ${index + 1}:\n${file.content}`
+        : '\nKhông đọc được nội dung trực tiếp, chỉ có thông tin file.';
+      return `File ${index + 1}: ${file.name} (${file.type}, ${file.sizeLabel})${content}`;
+    })
+    .join('\n\n');
+
+  return `${text}\n\n[Thông tin file người dùng tải lên]\n${fileContext}`;
+};
+
+const getConversationTitle = (text) => {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return 'File đã tải lên';
+  return clean.length > 34 ? `${clean.slice(0, 34)}...` : clean;
+};
+
 const ChatbotWidget = () => {
   const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState(initialMessages);
-  const [sessionId, setSessionId] = useState(() => localStorage.getItem('chat_session_id') || '');
+  const [conversations, setConversations] = useState(loadConversations);
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const savedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
+    const loaded = loadConversations();
+    return savedSessionId || loaded[0]?.sessionId || createConversation().sessionId;
+  });
   const [isTyping, setIsTyping] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const bottomRef = useRef(null);
+
+  const activeConversation = useMemo(() => {
+    return conversations.find((item) => item.sessionId === activeSessionId) || conversations[0];
+  }, [activeSessionId, conversations]);
+
+  const messages = activeConversation?.messages || [createWelcomeMessage()];
+
+  const filteredConversations = useMemo(() => {
+    const keyword = searchText.trim().toLowerCase();
+    if (!keyword) return conversations;
+    return conversations.filter((item) => item.title.toLowerCase().includes(keyword));
+  }, [conversations, searchText]);
+
+  useEffect(() => {
+    saveConversations(conversations);
+  }, [conversations]);
+
+  useEffect(() => {
+    if (activeSessionId) {
+      localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+    }
+  }, [activeSessionId]);
 
   useEffect(() => {
     const openChat = () => setIsOpen(true);
@@ -42,49 +115,89 @@ const ChatbotWidget = () => {
     }
   }, [isOpen, messages, isTyping]);
 
-  const handleSend = async (text) => {
-    const userMessage = { id: `user-${Date.now()}`, from: 'user', text };
+  const updateConversation = (sessionId, updater) => {
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.sessionId === sessionId
+          ? { ...updater(conversation), updatedAt: new Date().toISOString() }
+          : conversation
+      )
+    );
+  };
 
-    setMessages((prev) => [...prev, userMessage]);
+  const handleNewChat = () => {
+    const nextConversation = createConversation();
+    setConversations((prev) => [nextConversation, ...prev]);
+    setActiveSessionId(nextConversation.sessionId);
+    setSearchText('');
+  };
+
+  const handleDeleteConversation = (sessionId) => {
+    setConversations((prev) => {
+      const next = prev.filter((conversation) => conversation.sessionId !== sessionId);
+      if (activeSessionId === sessionId) {
+        const fallback = next[0] || createConversation();
+        if (!next.length) next.push(fallback);
+        setActiveSessionId(fallback.sessionId);
+      }
+      return next.length ? next : [createConversation()];
+    });
+  };
+
+  const handleSend = async (text, files = []) => {
+    const sessionId = activeConversation?.sessionId || activeSessionId;
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      from: 'user',
+      text,
+      attachments: files.map(({ name, size, sizeLabel, type }) => ({ name, size, sizeLabel, type })),
+    };
+
+    const messagesBeforeSend = messages;
+    const firstUserMessage = !messagesBeforeSend.some((message) => message.from === 'user');
+
+    updateConversation(sessionId, (conversation) => ({
+      ...conversation,
+      title: firstUserMessage ? getConversationTitle(text) : conversation.title,
+      messages: [...conversation.messages, userMessage],
+    }));
     setIsTyping(true);
 
     try {
       const response = await api.post('/health/chat', {
-        message: text,
-        session_id: sessionId || undefined,
-        history: toHistory(messages),
+        message: buildMessageWithFiles(text, files),
+        session_id: sessionId,
+        history: toHistory(messagesBeforeSend),
         use_saved_bmi: true,
         save_history: isAuthenticated,
       });
 
-      const nextSessionId = response.data?.session_id;
-      if (nextSessionId) {
-        setSessionId(nextSessionId);
-        localStorage.setItem('chat_session_id', nextSessionId);
-      }
+      const botMessage = {
+        id: `bot-${Date.now()}`,
+        from: 'bot',
+        text: response.data?.reply || 'Baymax chưa nhận được phản hồi phù hợp. Bạn thử hỏi lại nhé.',
+      };
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-${Date.now()}`,
-          from: 'bot',
-          text: response.data?.reply || 'Baymax chưa nhận được phản hồi phù hợp. Bạn thử hỏi lại nhé.',
-        },
-      ]);
+      updateConversation(sessionId, (conversation) => ({
+        ...conversation,
+        messages: [...conversation.messages, botMessage],
+      }));
     } catch (error) {
       const detail = error.response?.data?.detail;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          from: 'bot',
-          isError: true,
-          text:
-            typeof detail === 'string'
-              ? detail
-              : 'Hiện chưa kết nối được chatbot backend. Vui lòng kiểm tra server API rồi thử lại.',
-        },
-      ]);
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        from: 'bot',
+        isError: true,
+        text:
+          typeof detail === 'string'
+            ? detail
+            : 'Hiện chưa kết nối được chatbot backend. Vui lòng kiểm tra server API rồi thử lại.',
+      };
+
+      updateConversation(sessionId, (conversation) => ({
+        ...conversation,
+        messages: [...conversation.messages, errorMessage],
+      }));
     } finally {
       setIsTyping(false);
     }
@@ -96,7 +209,7 @@ const ChatbotWidget = () => {
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label="Mở chatbot Baymax"
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-red-500 text-white shadow-xl shadow-red-200 transition hover:scale-105 hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-200"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-2xl shadow-slate-400/40 transition hover:scale-105 hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-300"
       >
         <MessageCircle size={26} />
       </button>
@@ -104,54 +217,128 @@ const ChatbotWidget = () => {
   }
 
   return (
-    <section className="fixed bottom-5 right-5 z-40 flex h-[560px] max-h-[calc(100vh-6rem)] w-[360px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-lg border border-red-100 bg-white shadow-2xl shadow-slate-200">
-      <div className="flex items-center justify-between bg-red-500 px-4 py-3 text-white">
-        <div>
-          <h2 className="text-sm font-semibold">Baymax Chat</h2>
-          <p className="text-xs text-red-50">{isAuthenticated ? 'Đã kết nối tài khoản' : 'Tư vấn nhanh'}</p>
-        </div>
-        <div className="flex items-center gap-1">
+    <section className="fixed bottom-5 right-5 z-40 flex h-[640px] max-h-[calc(100vh-2.5rem)] w-[860px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-400/30">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-white md:flex">
+        <div className="border-b border-white/10 p-3">
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
-            aria-label="Thu nhỏ chatbot"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-red-50 transition hover:bg-white/15"
+            onClick={handleNewChat}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
           >
-            <Minus size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen(false);
-              setMessages(initialMessages);
-            }}
-            aria-label="Đóng chatbot"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-red-50 transition hover:bg-white/15"
-          >
-            <X size={18} />
+            <Plus size={16} />
+            Chat mới
           </button>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
-        <div className="flex flex-col gap-3">
-          {messages.map((message) => (
-            <ChatBubble key={message.id} message={message} />
-          ))}
-          {isTyping && (
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1 rounded-2xl rounded-tl-none bg-red-50 px-4 py-2 text-sm text-red-400">
-                <span className="animate-bounce">.</span>
-                <span className="animate-bounce delay-100">.</span>
-                <span className="animate-bounce delay-200">.</span>
+        <div className="p-3">
+          <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-300">
+            <Search size={15} />
+            <input
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Tìm lịch sử..."
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-2 pb-3">
+          {filteredConversations.map((conversation) => {
+            const isActive = conversation.sessionId === activeSessionId;
+            return (
+              <div key={conversation.sessionId} className="group mb-1 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveSessionId(conversation.sessionId)}
+                  className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm transition ${
+                    isActive ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`}
+                  title={conversation.title}
+                >
+                  <div className="truncate">{conversation.title}</div>
+                  <div className={`mt-0.5 text-[11px] ${isActive ? 'text-slate-500' : 'text-slate-500'}`}>
+                    {new Date(conversation.updatedAt).toLocaleDateString('vi-VN')}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteConversation(conversation.sessionId)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-red-300 group-hover:opacity-100"
+                  aria-label="Xóa cuộc trò chuyện"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
+            );
+          })}
         </div>
-      </div>
+      </aside>
 
-      <ChatInput onSend={handleSend} disabled={isTyping} />
+      <div className="flex min-w-0 flex-1 flex-col bg-slate-50">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+              <Bot size={20} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold text-slate-900">Baymax Chat</h2>
+              <p className="truncate text-xs text-slate-500">
+                {isAuthenticated ? 'Có thể đọc BMI và lưu lịch sử theo tài khoản' : 'Lịch sử đang lưu tạm trên trình duyệt'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleNewChat}
+              aria-label="Tạo chat mới"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 md:hidden"
+            >
+              <Plus size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              aria-label="Thu nhỏ chatbot"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            >
+              <Minus size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              aria-label="Đóng chatbot"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 md:px-8">
+          <div className="mx-auto flex max-w-3xl flex-col gap-5">
+            {messages.map((message) => (
+              <ChatBubble key={message.id} message={message} />
+            ))}
+            {isTyping && (
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm">
+                  <Bot size={17} />
+                </div>
+                <div className="flex gap-1 rounded-3xl rounded-tl-md bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200">
+                  <span className="animate-bounce">.</span>
+                  <span className="animate-bounce delay-100">.</span>
+                  <span className="animate-bounce delay-200">.</span>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+        </div>
+
+        <ChatInput onSend={handleSend} disabled={isTyping} />
+      </div>
     </section>
   );
 };

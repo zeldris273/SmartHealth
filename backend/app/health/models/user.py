@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Date, DateTime, Integer, String
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from database import Base
 
@@ -18,8 +19,16 @@ class User(Base):
     phone_number = Column(String(15), nullable=True)
     gender = Column(String(10), nullable=True)
     date_of_birth = Column(Date, nullable=True)
+    age = Column(Integer, nullable=True, comment="Tuổi")
     national_id = Column(String(20), unique=True, nullable=True)
     address = Column(String(255), nullable=True)
+    weight = Column(Integer, nullable=True, comment="Cân nặng (kg)")
+    height = Column(Integer, nullable=True, comment="Chiều cao (cm)")
+    fitness_goal = Column(
+        String(50),
+        nullable=True,
+        comment="Mục tiêu sức khỏe: lose_weight, gain_weight, maintain_weight, gain_muscle"
+    )
 
     # ---- BỔ SUNG CÁC TRƯỜNG ĐĂNG NHẬP GOOGLE  ----
     google_id = Column(
@@ -49,9 +58,5 @@ class User(Base):
         nullable=False,
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
+    # Relationships
+    oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")

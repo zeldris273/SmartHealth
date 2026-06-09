@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
-import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI } from '../services/auth';
+import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI } from '../services/auth';
 import { toast } from 'react-toastify';
 
 const AuthContext = createContext(null);
@@ -18,19 +18,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const saveToken = (token, rememberMe = true) => {
-    console.log('Saving token - rememberMe:', rememberMe, '- token length:', token?.length);
+    // Chỉ lưu access_token — refresh_token nằm trong HttpOnly cookie (không cần JS xử lý)
     if (rememberMe) {
       localStorage.setItem('access_token', token);
       sessionStorage.removeItem('access_token');
-      console.log('Token saved to localStorage');
     } else {
       sessionStorage.setItem('access_token', token);
       localStorage.removeItem('access_token');
-      console.log('Token saved to sessionStorage');
     }
   };
 
   const clearStoredTokens = () => {
+    // Chỉ xóa access_token — refresh_token (HttpOnly cookie) được xóa bởi backend qua /auth/logout
     localStorage.removeItem('access_token');
     sessionStorage.removeItem('access_token');
   };
@@ -130,6 +129,7 @@ export const AuthProvider = ({ children }) => {
       const data = await loginAPI(credentials);
       console.log('Login API response:', data);
       const token = data?.access_token || data?.token;
+      const refreshToken = data?.refresh_token;
 
       if (!token) {
         throw new Error('Login response did not include an access token');
@@ -158,6 +158,42 @@ export const AuthProvider = ({ children }) => {
       const errorMessage = error?.detail || error?.message || 'Login failed';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Google login handling
+  const googleLogin = async (googleToken, rememberMe = false) => {
+    console.log('Google login invoked');
+    setIsLoading(true);
+    try {
+      const data = await googleLoginAPI(googleToken);
+      console.log('Google login API response:', data);
+      const token = data?.access_token || data?.token;
+      const refreshToken = data?.refresh_token;
+      if (!token) {
+        throw new Error('Google login response missing access token');
+      }
+      // Save token similar to normal login (refresh_token already set in HttpOnly cookie by backend)
+      saveToken(token, rememberMe);
+      const userProfile = await getProfileAPI();
+      console.log('User profile after Google login:', userProfile);
+      if (!userProfile?.id) {
+        throw new Error('Failed to fetch user profile after Google login');
+      }
+      setUser(userProfile);
+      setIsAuthenticated(true);
+      localStorage.setItem('user_profile', JSON.stringify(userProfile));
+      toast.success('Successfully logged in with Google!');
+      return { success: true };
+    } catch (error) {
+      console.error('Google login error:', error);
+      clearStoredTokens();
+      localStorage.removeItem('user_profile');
+      const errMsg = error?.detail || error?.message || 'Google login failed';
+      toast.error(errMsg);
+      return { success: false, error: errMsg };
     } finally {
       setIsLoading(false);
     }
@@ -201,7 +237,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Gọi backend để xóa HttpOnly cookie (refresh_token)
+    try {
+      await logoutAPI();
+    } catch (e) {
+      // Bỏ qua lỗi — vẫn tiến hành đăng xuất phía client
+      console.warn('Logout API error (ignored):', e);
+    }
     clearStoredTokens();
     localStorage.removeItem('user_profile');
     setUser(null);
@@ -227,9 +270,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshProfile = async () => {
+    try {
+      const updatedUser = await getProfileAPI();
+      if (updatedUser?.id) {
+        setUser(updatedUser);
+        // Cache the updated profile
+        localStorage.setItem('user_profile', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+    } catch (error) {
+      console.error('Refresh profile error:', error);
+      // Silently fail - just log the error without showing toast
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
-      user, isAuthenticated, isLoading, login, register, logout, updateProfile,
+      user, isAuthenticated, isLoading, login, register, logout, updateProfile, refreshProfile, googleLogin,
       isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType
     }}>
       {children}
