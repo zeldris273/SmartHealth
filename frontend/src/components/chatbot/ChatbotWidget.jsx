@@ -1,17 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, MessageCircle, Minus, Plus, Search, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, MessageCircle, Minus, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../auth/context/AuthContext';
 import api from '../../services/api';
 import ChatBubble from './ChatBubble';
 import ChatInput from './ChatInput';
 
-const STORAGE_KEY = 'smarthealth_chatbot_conversations';
-const ACTIVE_SESSION_KEY = 'chat_session_id';
+const STORAGE_PREFIX = 'smarthealth_chatbot_conversations';
+const ACTIVE_SESSION_PREFIX = 'chat_session_id';
+
+const getStorageKey = (userKey) => `${STORAGE_PREFIX}_${userKey}`;
+const getActiveSessionKey = (userKey) => `${ACTIVE_SESSION_PREFIX}_${userKey}`;
 
 const createWelcomeMessage = () => ({
   id: 'welcome',
   from: 'bot',
-  text: 'Xin chào, tôi là Baymax. Bạn có thể hỏi về sức khỏe, BMI, chế độ ăn hoặc tải file lên để tôi hỗ trợ.',
+  text: 'Xin chào, tôi là Baymax. Bạn có thể hỏi tôi bất cứ điều gì về sức khỏe, dinh dưỡng, luyện tập hoặc gửi các file PDF/DOCX/TXT để tôi tư vấn.',
 });
 
 const createConversation = () => ({
@@ -22,9 +25,9 @@ const createConversation = () => ({
   messages: [createWelcomeMessage()],
 });
 
-const loadConversations = () => {
+const loadConversationsFromStorage = (userKey) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey(userKey));
     const parsed = raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
   } catch (error) {
@@ -33,9 +36,24 @@ const loadConversations = () => {
   return [createConversation()];
 };
 
-const saveConversations = (conversations) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 20)));
+const saveConversationsToStorage = (userKey, conversations) => {
+  localStorage.setItem(getStorageKey(userKey), JSON.stringify(conversations.slice(0, 20)));
 };
+
+const mapBackendConversation = (conversation) => ({
+  sessionId: conversation.session_id,
+  title: conversation.title,
+  createdAt: conversation.created_at,
+  updatedAt: conversation.updated_at,
+  messages: [
+    createWelcomeMessage(),
+    ...conversation.messages.map((message) => ({
+      id: `db-${message.id}`,
+      from: message.role === 'user' ? 'user' : 'bot',
+      text: message.content,
+    })),
+  ],
+});
 
 const toHistory = (messages) =>
   messages
@@ -47,39 +65,29 @@ const toHistory = (messages) =>
       content: message.text,
     }));
 
-const buildMessageWithFiles = (text, files) => {
-  if (!files?.length) return text;
-
-  const fileContext = files
-    .map((file, index) => {
-      const content = file.content
-        ? `\nNội dung file ${index + 1}:\n${file.content}`
-        : '\nKhông đọc được nội dung trực tiếp, chỉ có thông tin file.';
-      return `File ${index + 1}: ${file.name} (${file.type}, ${file.sizeLabel})${content}`;
-    })
-    .join('\n\n');
-
-  return `${text}\n\n[Thông tin file người dùng tải lên]\n${fileContext}`;
-};
-
 const getConversationTitle = (text) => {
   const clean = text.replace(/\s+/g, ' ').trim();
-  if (!clean) return 'File đã tải lên';
+  if (!clean) return 'Tài liệu đã tải lên';
   return clean.length > 34 ? `${clean.slice(0, 34)}...` : clean;
 };
 
 const ChatbotWidget = () => {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const userKey = isAuthenticated && user?.id ? String(user.id) : 'guest';
+
   const [isOpen, setIsOpen] = useState(false);
-  const [conversations, setConversations] = useState(loadConversations);
+  const [conversations, setConversations] = useState(() => loadConversationsFromStorage('guest'));
   const [activeSessionId, setActiveSessionId] = useState(() => {
-    const savedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
-    const loaded = loadConversations();
-    return savedSessionId || loaded[0]?.sessionId || createConversation().sessionId;
+    const loaded = loadConversationsFromStorage('guest');
+    return localStorage.getItem(getActiveSessionKey('guest')) || loaded[0]?.sessionId || createConversation().sessionId;
   });
   const [isTyping, setIsTyping] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
   const bottomRef = useRef(null);
+  const renameInputRef = useRef(null);
 
   const activeConversation = useMemo(() => {
     return conversations.find((item) => item.sessionId === activeSessionId) || conversations[0];
@@ -93,15 +101,55 @@ const ChatbotWidget = () => {
     return conversations.filter((item) => item.title.toLowerCase().includes(keyword));
   }, [conversations, searchText]);
 
+  const loadUserConversations = useCallback(async () => {
+    if (isAuthenticated && user?.id) {
+      setIsLoadingHistory(true);
+      try {
+        const response = await api.get('/health/chat/conversations');
+        const mapped = (response.data || []).map(mapBackendConversation);
+        const nextConversations = mapped.length ? mapped : [createConversation()];
+        setConversations(nextConversations);
+        const savedSessionId = localStorage.getItem(getActiveSessionKey(userKey));
+        const hasSavedSession = nextConversations.some((item) => item.sessionId === savedSessionId);
+        setActiveSessionId(hasSavedSession ? savedSessionId : nextConversations[0].sessionId);
+      } catch (error) {
+        console.warn('Không tải được lịch sử chat từ server:', error);
+        const fallback = loadConversationsFromStorage(userKey);
+        setConversations(fallback);
+        setActiveSessionId(
+          localStorage.getItem(getActiveSessionKey(userKey)) || fallback[0]?.sessionId || createConversation().sessionId
+        );
+      } finally {
+        setIsLoadingHistory(false);
+      }
+      return;
+    }
+
+    const guestConversations = loadConversationsFromStorage('guest');
+    setConversations(guestConversations);
+    setActiveSessionId(
+      localStorage.getItem(getActiveSessionKey('guest')) || guestConversations[0]?.sessionId || createConversation().sessionId
+    );
+  }, [isAuthenticated, user?.id, userKey]);
+
   useEffect(() => {
-    saveConversations(conversations);
-  }, [conversations]);
+    loadUserConversations();
+    setEditingSessionId(null);
+    setEditTitle('');
+    setSearchText('');
+  }, [loadUserConversations]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      saveConversationsToStorage('guest', conversations);
+    }
+  }, [conversations, isAuthenticated]);
 
   useEffect(() => {
     if (activeSessionId) {
-      localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+      localStorage.setItem(getActiveSessionKey(userKey), activeSessionId);
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, userKey]);
 
   useEffect(() => {
     const openChat = () => setIsOpen(true);
@@ -114,6 +162,13 @@ const ChatbotWidget = () => {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [isOpen, messages, isTyping]);
+
+  useEffect(() => {
+    if (editingSessionId) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [editingSessionId]);
 
   const updateConversation = (sessionId, updater) => {
     setConversations((prev) =>
@@ -130,9 +185,18 @@ const ChatbotWidget = () => {
     setConversations((prev) => [nextConversation, ...prev]);
     setActiveSessionId(nextConversation.sessionId);
     setSearchText('');
+    setEditingSessionId(null);
   };
 
-  const handleDeleteConversation = (sessionId) => {
+  const handleDeleteConversation = async (sessionId) => {
+    if (isAuthenticated) {
+      try {
+        await api.delete(`/health/chat/sessions/${sessionId}`);
+      } catch (error) {
+        console.warn('Không xóa được cuộc trò chuyện trên server:', error);
+      }
+    }
+
     setConversations((prev) => {
       const next = prev.filter((conversation) => conversation.sessionId !== sessionId);
       if (activeSessionId === sessionId) {
@@ -142,6 +206,53 @@ const ChatbotWidget = () => {
       }
       return next.length ? next : [createConversation()];
     });
+    if (editingSessionId === sessionId) {
+      setEditingSessionId(null);
+      setEditTitle('');
+    }
+  };
+
+  const startRenameConversation = (conversation) => {
+    setEditingSessionId(conversation.sessionId);
+    setEditTitle(conversation.title);
+  };
+
+  const cancelRenameConversation = () => {
+    setEditingSessionId(null);
+    setEditTitle('');
+  };
+
+  const submitRenameConversation = async (sessionId) => {
+    const title = editTitle.trim();
+    if (!title) {
+      cancelRenameConversation();
+      return;
+    }
+
+    updateConversation(sessionId, (conversation) => ({ ...conversation, title }));
+
+    if (isAuthenticated) {
+      try {
+        await api.patch(`/health/chat/sessions/${sessionId}`, { title });
+      } catch (error) {
+        console.warn('Không đổi tên được cuộc trò chuyện trên server:', error);
+      }
+    }
+
+    cancelRenameConversation();
+  };
+
+  const uploadDocuments = async (files) => {
+    const uploaded = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file.rawFile);
+      const response = await api.post('/health/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      uploaded.push(response.data);
+    }
+    return uploaded;
   };
 
   const handleSend = async (text, files = []) => {
@@ -150,7 +261,13 @@ const ChatbotWidget = () => {
       id: `user-${Date.now()}`,
       from: 'user',
       text,
-      attachments: files.map(({ name, size, sizeLabel, type }) => ({ name, size, sizeLabel, type })),
+      attachments: files.map(({ name, size, sizeLabel, type }) => ({
+        name,
+        size,
+        sizeLabel,
+        type,
+        status: 'uploading',
+      })),
     };
 
     const messagesBeforeSend = messages;
@@ -164,18 +281,40 @@ const ChatbotWidget = () => {
     setIsTyping(true);
 
     try {
+      if (files.length > 0) {
+        const uploadedDocuments = await uploadDocuments(files);
+        updateConversation(sessionId, (conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            message.id === userMessage.id
+              ? {
+                  ...message,
+                  attachments: message.attachments.map((attachment) => {
+                    const uploaded = uploadedDocuments.find((document) => document.filename === attachment.name);
+                    return uploaded
+                      ? { ...attachment, status: 'processed', chunkCount: uploaded.chunk_count }
+                      : attachment;
+                  }),
+                }
+              : message
+          ),
+        }));
+      }
+
       const response = await api.post('/health/chat', {
-        message: buildMessageWithFiles(text, files),
+        message: text,
         session_id: sessionId,
         history: toHistory(messagesBeforeSend),
         use_saved_bmi: true,
         save_history: isAuthenticated,
+        use_rag: true,
       });
 
       const botMessage = {
         id: `bot-${Date.now()}`,
         from: 'bot',
         text: response.data?.reply || 'Baymax chưa nhận được phản hồi phù hợp. Bạn thử hỏi lại nhé.',
+        sources: response.data?.sources || [],
       };
 
       updateConversation(sessionId, (conversation) => ({
@@ -191,7 +330,7 @@ const ChatbotWidget = () => {
         text:
           typeof detail === 'string'
             ? detail
-            : 'Hiện chưa kết nối được chatbot backend. Vui lòng kiểm tra server API rồi thử lại.',
+            : 'Hiện chưa xử lý được yêu cầu. Vui lòng kiểm tra backend/API key rồi thử lại.',
       };
 
       updateConversation(sessionId, (conversation) => ({
@@ -209,7 +348,7 @@ const ChatbotWidget = () => {
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label="Mở chatbot Baymax"
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-2xl shadow-slate-400/40 transition hover:scale-105 hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-300"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white shadow-2xl shadow-red-500/40 transition hover:scale-110 hover:shadow-red-500/60 focus:outline-none focus:ring-4 focus:ring-red-200"
       >
         <MessageCircle size={26} />
       </button>
@@ -218,12 +357,12 @@ const ChatbotWidget = () => {
 
   return (
     <section className="fixed bottom-5 right-5 z-40 flex h-[640px] max-h-[calc(100vh-2.5rem)] w-[860px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-400/30">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-white md:flex">
-        <div className="border-b border-white/10 p-3">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50 text-slate-900 md:flex">
+        <div className="border-b border-slate-200 p-3">
           <button
             type="button"
             onClick={handleNewChat}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
           >
             <Plus size={16} />
             Chat mới
@@ -231,43 +370,85 @@ const ChatbotWidget = () => {
         </div>
 
         <div className="p-3">
-          <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-300">
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 text-sm text-slate-600 focus-within:border-red-300">
             <Search size={15} />
             <input
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               placeholder="Tìm lịch sử..."
-              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-500"
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
             />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 pb-3">
+          {isLoadingHistory && (
+            <div className="px-3 py-2 text-xs text-slate-400">Đang tải lịch sử...</div>
+          )}
           {filteredConversations.map((conversation) => {
             const isActive = conversation.sessionId === activeSessionId;
+            const isEditing = editingSessionId === conversation.sessionId;
+
             return (
               <div key={conversation.sessionId} className="group mb-1 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveSessionId(conversation.sessionId)}
-                  className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm transition ${
-                    isActive ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`}
-                  title={conversation.title}
-                >
-                  <div className="truncate">{conversation.title}</div>
-                  <div className={`mt-0.5 text-[11px] ${isActive ? 'text-slate-500' : 'text-slate-500'}`}>
-                    {new Date(conversation.updatedAt).toLocaleDateString('vi-VN')}
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteConversation(conversation.sessionId)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-red-300 group-hover:opacity-100"
-                  aria-label="Xóa cuộc trò chuyện"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {isEditing ? (
+                  <form
+                    className="min-w-0 flex-1"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitRenameConversation(conversation.sessionId);
+                    }}
+                  >
+                    <input
+                      ref={renameInputRef}
+                      value={editTitle}
+                      onChange={(event) => setEditTitle(event.target.value)}
+                      onBlur={() => submitRenameConversation(conversation.sessionId)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          cancelRenameConversation();
+                        }
+                      }}
+                      maxLength={120}
+                      className="w-full rounded-xl border border-red-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+                    />
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSessionId(conversation.sessionId)}
+                    className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm transition ${
+                      isActive ? 'bg-red-500 text-white shadow-md' : 'text-slate-600 hover:bg-white hover:text-red-500'
+                    }`}
+                    title={conversation.title}
+                  >
+                    <div className="truncate font-medium">{conversation.title}</div>
+                    <div className={`mt-0.5 text-[11px] ${isActive ? 'text-red-100' : 'text-slate-400'}`}>
+                      {new Date(conversation.updatedAt).toLocaleDateString('vi-VN')}
+                    </div>
+                  </button>
+                )}
+                {!isEditing && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => startRenameConversation(conversation)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-slate-100 hover:text-red-500 group-hover:opacity-100"
+                      aria-label="Đổi tên cuộc trò chuyện"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteConversation(conversation.sessionId)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                      aria-label="Xóa cuộc trò chuyện"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
               </div>
             );
           })}
@@ -277,13 +458,17 @@ const ChatbotWidget = () => {
       <div className="flex min-w-0 flex-1 flex-col bg-slate-50">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white">
               <Bot size={20} />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold text-slate-900">Baymax Chat</h2>
+              <h2 className="truncate text-sm font-semibold text-slate-900">
+                {activeConversation?.title || 'Baymax Chat'}
+              </h2>
               <p className="truncate text-xs text-slate-500">
-                {isAuthenticated ? 'Có thể đọc BMI và lưu lịch sử theo tài khoản' : 'Lịch sử đang lưu tạm trên trình duyệt'}
+                {isAuthenticated
+                  ? 'Chatbot thông minh hỗ trợ sức khỏe'
+                  : 'Đăng nhập để upload tài liệu và lưu lịch sử'}
               </p>
             </div>
           </div>
@@ -323,7 +508,7 @@ const ChatbotWidget = () => {
             ))}
             {isTyping && (
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-sm">
                   <Bot size={17} />
                 </div>
                 <div className="flex gap-1 rounded-3xl rounded-tl-md bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200">
