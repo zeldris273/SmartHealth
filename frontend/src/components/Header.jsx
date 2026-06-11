@@ -6,6 +6,7 @@ import { useRef } from 'react';
 
 const navItems = [
   { label: 'Bảng điều khiển', to: '/dashboard' },
+  { label: 'Chatbot', to: '/chat' },
   { label: 'Trang cá nhân', to: '/profile' },
 ];
 

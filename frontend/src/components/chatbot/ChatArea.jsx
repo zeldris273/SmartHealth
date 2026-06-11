@@ -1,34 +1,23 @@
-import { useRef, useState, useEffect } from 'react';
-import { Bot, MoreVertical, Paperclip, Send, Mic, Grid3X3, Star, FileText, Minus, X } from 'lucide-react';
-import { useAuth } from '../../auth/context/AuthContext';
-import ChatBubble from './ChatBubble';
+import { useRef, useState, useEffect } from "react";
+import { Bot, Paperclip, Send } from "lucide-react";
+import ChatBubble from "./ChatBubble";
 
 const formatFileSize = (size) => {
-  if (!size) return '0 B';
+  if (!size) return "0 B";
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const ChatArea = ({
-  messages,
-  isTyping,
-  onSend,
-  activeTitle,
-  user,
-  showRagToggle,
-  showRagPanel,
-  onToggleRagPanel,
-  onClose,
-}) => {
-  const [text, setText] = useState('');
+const ChatArea = ({ messages, isTyping, onSend, activeTitle, user }) => {
+  const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   const handleFileChange = (e) => {
@@ -40,11 +29,11 @@ const ChatArea = ({
         name: f.name,
         size: f.size,
         sizeLabel: formatFileSize(f.size),
-        type: f.type || 'unknown',
+        type: f.type || "unknown",
         rawFile: f,
       }));
     setFiles((p) => [...p, ...selected].slice(0, 5));
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const removeFile = (id) => setFiles((p) => p.filter((f) => f.id !== id));
@@ -53,16 +42,17 @@ const ChatArea = ({
     const clean = text.trim();
     if (!clean && !files.length) return;
     onSend(
-      clean || 'Tôi đã tải tài liệu lên, hãy dùng nội dung đó để tư vấn cho tôi.',
-      files
+      clean ||
+        "Tôi đã tải tài liệu lên, hãy dùng nội dung đó để tư vấn cho tôi.",
+      files,
     );
-    setText('');
+    setText("");
     setFiles([]);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -70,83 +60,46 @@ const ChatArea = ({
 
   const autoResize = (e) => {
     const ta = e.target;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
   };
 
   return (
-    <main className="chat-main">
-      <header className="chat-main-header">
-        <div className="chat-main-header-left">
-          <h2 className="chat-main-title">
-            {activeTitle || 'Tư vấn dinh dưỡng'}
-          </h2>
-          <span className="chat-main-subtitle">
-            {new Date().toLocaleDateString('vi-VN', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'numeric',
-              year: 'numeric',
-            })}
-          </span>
-        </div>
-        <div className="chat-main-header-actions">
-          {showRagToggle && (
-            <button
-              type="button"
-              onClick={onToggleRagPanel}
-              className="chat-header-btn"
-              aria-label="Bật/tắt panel tài liệu"
-              title={showRagPanel ? 'Ẩn tài liệu' : 'Hiện tài liệu'}
-            >
-              <FileText size={18} />
-            </button>
-          )}
-          <button type="button" className="chat-header-btn" aria-label="Yêu thích">
-            <Star size={18} />
-          </button>
-          <button type="button" className="chat-header-btn" aria-label="Tùy chọn">
-            <MoreVertical size={18} />
-          </button>
-          {onClose && (
-            <>
-              <button
-                type="button"
-                onClick={onClose}
-                className="chat-header-btn"
-                aria-label="Thu nhỏ"
-                title="Thu nhỏ"
-              >
-                <Minus size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="chat-header-btn"
-                aria-label="Đóng chatbot"
-                title="Đóng"
-              >
-                <X size={18} />
-              </button>
-            </>
-          )}
-        </div>
+    <main className="flex flex-col flex-1 h-full overflow-hidden bg-white">
+      {/* Header */}
+      <header className="flex-shrink-0 px-6 py-3 border-b border-gray-100 bg-white">
+        <h2 className="text-base font-semibold text-gray-800 truncate">
+          {activeTitle || "Tư vấn dinh dưỡng"}
+        </h2>
+        <span className="text-xs text-gray-400">
+          {new Date().toLocaleDateString("vi-VN", {
+            weekday: "long",
+            day: "numeric",
+            month: "numeric",
+            year: "numeric",
+          })}
+        </span>
       </header>
 
-      <div className="chat-messages">
-        <div className="chat-messages-inner">
+      {/* Messages — scrollable */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="max-w-2xl mx-auto flex flex-col gap-3">
           {messages.map((m) => (
             <ChatBubble key={m.id} message={m} />
           ))}
           {isTyping && (
-            <div className="chat-typing">
-              <div className="chat-typing-avatar">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center flex-shrink-0">
                 <Bot size={17} />
               </div>
-              <div className="chat-typing-dots">
-                <span className="dot"></span>
-                <span className="dot"></span>
-                <span className="dot"></span>
+              <div className="flex gap-1 px-3 py-2 bg-red-50 rounded-2xl">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="w-2 h-2 bg-red-400 rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -154,79 +107,74 @@ const ChatArea = ({
         </div>
       </div>
 
-      <div className="chat-input-area">
-        {files.length > 0 && (
-          <div className="chat-input-files">
-            {files.map((f) => (
-              <div key={f.id} className="chat-input-file-chip">
-                <Paperclip size={13} />
-                <span className="chat-input-file-name">{f.name}</span>
-                <span className="chat-input-file-size">{f.sizeLabel}</span>
-                <button
-                  type="button"
-                  onClick={() => removeFile(f.id)}
-                  className="chat-input-file-remove"
+      {/* Input — always at bottom */}
+      <div className="flex-shrink-0 border-t border-gray-100 bg-white px-4 py-3">
+        <div className="max-w-2xl mx-auto">
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {files.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-100 rounded-full text-xs text-red-700"
                 >
-                  ×
-                </button>
-              </div>
-            ))}
+                  <Paperclip size={11} />
+                  <span className="max-w-[120px] truncate">{f.name}</span>
+                  <span className="text-red-400">{f.sizeLabel}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(f.id)}
+                    className="ml-0.5 text-red-400 hover:text-red-600 font-bold leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2 focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-100 transition-all">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+              accept=".pdf,.docx,.txt"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isTyping}
+              className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 disabled:opacity-40 transition-colors"
+              aria-label="Đính kèm file"
+            >
+              <Paperclip size={20} />
+            </button>
+
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                autoResize(e);
+              }}
+              onKeyDown={handleKeyDown}
+              disabled={isTyping}
+              rows={1}
+              placeholder="Nhắn tin cho Baymax..."
+              className="flex-1 bg-transparent resize-none text-sm text-gray-800 placeholder-gray-400 outline-none leading-5 py-1 max-h-[120px]"
+            />
+
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={isTyping || (!text.trim() && !files.length)}
+              aria-label="Gửi"
+              className="flex-shrink-0 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-red-600 transition-colors"
+            >
+              <Send size={16} />
+            </button>
           </div>
-        )}
-        <div className="chat-input-bar">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-            accept=".pdf,.docx,.txt"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isTyping}
-            className="chat-input-action-btn"
-            aria-label="Đính kèm file"
-          >
-            <Paperclip size={20} />
-          </button>
-          <button
-            type="button"
-            className="chat-input-action-btn"
-            aria-label="Ghi âm"
-          >
-            <Mic size={20} />
-          </button>
-          <button
-            type="button"
-            className="chat-input-action-btn"
-            aria-label="Menu"
-          >
-            <Grid3X3 size={20} />
-          </button>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              autoResize(e);
-            }}
-            onKeyDown={handleKeyDown}
-            disabled={isTyping}
-            rows={1}
-            placeholder="Nhắn tin cho Baymax..."
-            className="chat-input-textarea"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={isTyping || (!text.trim() && !files.length)}
-            aria-label="Gửi"
-            className="chat-send-btn"
-          >
-            <Send size={20} />
-          </button>
         </div>
       </div>
     </main>
