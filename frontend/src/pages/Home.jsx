@@ -39,7 +39,7 @@ const Home = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 transition-all duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`min-h-screen bg-gradient-to-br from-red-100 via-rose-50 to-pink-100 transition-all duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
 
       {/* Hero Section */}
       <section className="px-8 py-12 max-w-7xl mx-auto">
@@ -86,38 +86,61 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Right - Baymax + floating stats */}
+          {/* Right - Baymax wheel + info card + floating stats */}
           <div className={`relative flex items-center justify-center transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            {/* Background circle */}
             <div className="absolute w-72 h-72 bg-red-100 rounded-full opacity-50" />
 
-            {/* Baymax wheel */}
-            <div className="relative w-[280px] h-[280px] flex items-center justify-center z-10">
-              {features_wheel.map((f, i) => {
-                const angle = (i * 2 * Math.PI) / features_wheel.length - Math.PI / 2;
-                const x = radius * Math.cos(angle);
-                const y = radius * Math.sin(angle);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setActiveFeature(activeFeature === i ? null : i)}
-                    className={`absolute w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-md transition-all duration-500 ${activeFeature === i ? 'bg-red-500 ring-4 ring-red-200' : 'bg-white border border-gray-100 hover:bg-red-50'}`}
-                    style={{
-                      transform: wheelOpen ? `translate(${x}px, ${y}px) scale(1)` : 'translate(0,0) scale(0)',
-                      opacity: wheelOpen ? 1 : 0,
-                      transitionDelay: wheelOpen ? `${i * 60}ms` : '0ms',
-                    }}
-                  >
-                    {f.icon}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => { setWheelOpen(!wheelOpen); setActiveFeature(null); }}
-                className="z-10 animate-heartbeat hover:scale-105 transition-all duration-300"
-              >
-                <BaymaxLogo size={120} />
-              </button>
+            <div className="flex flex-col items-center gap-4 z-10">
+              {/* Wheel */}
+              <div className="relative w-[260px] h-[260px] flex items-center justify-center">
+                {features_wheel.map((f, i) => {
+                  const angle = (i * 2 * Math.PI) / features_wheel.length - Math.PI / 2;
+                  const x = radius * Math.cos(angle);
+                  const y = radius * Math.sin(angle);
+                  const isActive = activeFeature === i;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setActiveFeature(isActive ? null : i)}
+                      className={`absolute w-11 h-11 rounded-full flex items-center justify-center text-xl shadow-md transition-all duration-500 ${isActive ? 'bg-red-500 ring-4 ring-red-200' : 'bg-white border border-red-100 hover:bg-red-50 hover:scale-110'}`}
+                      style={{
+                        transform: wheelOpen
+                          ? `translate(${x}px, ${y}px) scale(${isActive ? 1.2 : 1})`
+                          : 'translate(0,0) scale(0)',
+                        opacity: wheelOpen ? 1 : 0,
+                        transitionDelay: wheelOpen ? `${i * 60}ms` : '0ms',
+                      }}
+                    >
+                      {f.icon}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => { setWheelOpen(!wheelOpen); setActiveFeature(null); }}
+                  className={`z-10 transition-all duration-300 animate-heartbeat ${wheelOpen ? 'scale-110' : 'hover:scale-105'}`}
+                >
+                  <BaymaxLogo size={110} />
+                </button>
+              </div>
+
+              {/* Info card cố định bên dưới wheel */}
+              <div className={`w-[260px] bg-white rounded-2xl border px-4 py-3 flex items-center gap-3 min-h-[64px] transition-all duration-300 ${activeFeature !== null ? 'border-red-100 shadow-md' : 'border-gray-100'}`}>
+                {activeFeature !== null ? (
+                  <>
+                    <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
+                      {features_wheel[activeFeature].icon}
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-[#1e293b] mb-0.5">{features_wheel[activeFeature].title}</div>
+                      <div className="text-xs text-gray-400 leading-relaxed">{features_wheel[activeFeature].desc}</div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-red-300 italic w-full text-center">
+                    {wheelOpen ? 'Click icon để xem chi tiết' : 'Click Baymax để khám phá tính năng'}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Floating stat cards */}
@@ -126,14 +149,12 @@ const Home = () => {
               <div className="text-xl font-bold text-red-500">22.4</div>
               <div className="text-xs text-green-500">Bình thường</div>
             </div>
-
             <div className="absolute top-4 right-0 bg-white rounded-2xl px-4 py-3 shadow-md border border-gray-100 z-20">
               <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">❤️ Sức khỏe</div>
               <div className="text-xl font-bold text-red-500">82%</div>
               <div className="text-xs text-green-500">Tốt</div>
             </div>
-
-            <div className="absolute bottom-4 right-4 bg-white rounded-2xl px-4 py-3 shadow-md border border-gray-100 z-20">
+            <div className="absolute bottom-16 right-0 bg-white rounded-2xl px-4 py-3 shadow-md border border-gray-100 z-20">
               <div className="text-xs text-gray-400 mb-1">Calories</div>
               <div className="text-xl font-bold text-orange-400">1,850<span className="text-sm font-normal text-gray-400 ml-1">kcal</span></div>
               <div className="text-xs text-gray-400">Hôm nay</div>
@@ -173,15 +194,6 @@ const Home = () => {
           ))}
         </div>
       </section>
-
-      {/* Active feature popup */}
-      {activeFeature !== null && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white rounded-2xl px-6 py-4 shadow-xl border border-red-100 z-50 transition-all duration-300">
-          <div className="text-2xl mb-1">{features_wheel[activeFeature].icon}</div>
-          <h3 className="text-sm font-semibold text-[#1e293b] mb-1">{features_wheel[activeFeature].title}</h3>
-          <p className="text-xs text-gray-400">{features_wheel[activeFeature].desc}</p>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="text-center pb-8">

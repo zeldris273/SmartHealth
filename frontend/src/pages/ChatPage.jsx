@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Minus, Plus, Search, Trash2, X, MessageCircle } from 'lucide-react';
-import { useAuth } from '../../auth/context/AuthContext';
-import api from '../../services/api';
-import ChatSidebar from './ChatSidebar';
-import ChatArea from './ChatArea';
-import RagPanel from './RagPanel';
+import { useAuth } from '../auth/context/AuthContext';
+import api from '../services/api';
+import ChatSidebar from '../components/chatbot/ChatSidebar';
+import ChatArea from '../components/chatbot/ChatArea';
+import RagPanel from '../components/chatbot/RagPanel';
 
 const STORAGE_PREFIX = 'smarthealth_chatbot_conversations';
 const ACTIVE_SESSION_PREFIX = 'chat_session_id';
@@ -31,8 +30,8 @@ const loadConversationsFromStorage = (userKey) => {
     const raw = localStorage.getItem(getStorageKey(userKey));
     const parsed = raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {
-    console.warn('Không đọc được lịch sử chat local');
+  } catch (error) {
+    console.warn('Không đọc được lịch sử chat local:', error);
   }
   return [createConversation()];
 };
@@ -76,37 +75,22 @@ const SUGGESTIONS = [
   'Thực phẩm tốt cho giấc ngủ',
 ];
 
-const formatSize = (size) => {
-  if (!size) return '0 B';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-const ChatbotWidget = () => {
+const ChatPage = () => {
   const { user, isAuthenticated } = useAuth();
   const userKey = isAuthenticated && user?.id ? String(user.id) : 'guest';
 
-  const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState(() => loadConversationsFromStorage('guest'));
   const [activeSessionId, setActiveSessionId] = useState(() => {
     const loaded = loadConversationsFromStorage('guest');
-    return (
-      localStorage.getItem(getActiveSessionKey('guest')) ||
-      loaded[0]?.sessionId ||
-      createConversation().sessionId
-    );
+    return localStorage.getItem(getActiveSessionKey('guest')) || loaded[0]?.sessionId;
   });
   const [isTyping, setIsTyping] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [showRagPanel, setShowRagPanel] = useState(true);
   const [ragDocuments, setRagDocuments] = useState([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
-
-  const renameInputRef = useRef(null);
 
   const activeConversation = useMemo(() => {
     return conversations.find((c) => c.sessionId === activeSessionId) || conversations[0];
@@ -120,6 +104,7 @@ const ChatbotWidget = () => {
     return conversations.filter((c) => c.title.toLowerCase().includes(keyword));
   }, [conversations, searchText]);
 
+  // Load conversations
   const loadUserConversations = useCallback(async () => {
     if (isAuthenticated && user?.id) {
       setIsLoadingHistory(true);
@@ -134,11 +119,7 @@ const ChatbotWidget = () => {
       } catch {
         const fallback = loadConversationsFromStorage(userKey);
         setConversations(fallback);
-        setActiveSessionId(
-          localStorage.getItem(getActiveSessionKey(userKey)) ||
-            fallback[0]?.sessionId ||
-            createConversation().sessionId
-        );
+        setActiveSessionId(localStorage.getItem(getActiveSessionKey(userKey)) || fallback[0]?.sessionId);
       } finally {
         setIsLoadingHistory(false);
       }
@@ -146,69 +127,34 @@ const ChatbotWidget = () => {
     }
     const guest = loadConversationsFromStorage('guest');
     setConversations(guest);
-    setActiveSessionId(
-      localStorage.getItem(getActiveSessionKey('guest')) ||
-        guest[0]?.sessionId ||
-        createConversation().sessionId
-    );
+    setActiveSessionId(localStorage.getItem(getActiveSessionKey('guest')) || guest[0]?.sessionId);
   }, [isAuthenticated, user?.id, userKey]);
 
+  // Load RAG documents
   const loadRagDocuments = useCallback(async () => {
-    if (!isAuthenticated) {
-      setRagDocuments([]);
-      return;
-    }
+    if (!isAuthenticated) { setRagDocuments([]); return; }
     setIsLoadingDocs(true);
     try {
       const res = await api.get('/health/documents');
       setRagDocuments(res.data || []);
-    } catch {
-      setRagDocuments([]);
-    } finally {
-      setIsLoadingDocs(false);
-    }
+    } catch { setRagDocuments([]); }
+    finally { setIsLoadingDocs(false); }
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    loadUserConversations();
-  }, [loadUserConversations]);
+  useEffect(() => { loadUserConversations(); }, [loadUserConversations]);
+  useEffect(() => { loadRagDocuments(); }, [loadRagDocuments]);
 
   useEffect(() => {
-    loadRagDocuments();
-  }, [loadRagDocuments]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      saveConversationsToStorage('guest', conversations);
-    }
+    if (!isAuthenticated) saveConversationsToStorage('guest', conversations);
   }, [conversations, isAuthenticated]);
 
   useEffect(() => {
-    if (activeSessionId) {
-      localStorage.setItem(getActiveSessionKey(userKey), activeSessionId);
-    }
+    if (activeSessionId) localStorage.setItem(getActiveSessionKey(userKey), activeSessionId);
   }, [activeSessionId, userKey]);
-
-  useEffect(() => {
-    const openChat = () => setIsOpen(true);
-    window.addEventListener('open-chatbot', openChat);
-    return () => window.removeEventListener('open-chatbot', openChat);
-  }, []);
-
-  useEffect(() => {
-    if (editingSessionId) {
-      renameInputRef.current?.focus();
-      renameInputRef.current?.select();
-    }
-  }, [editingSessionId]);
 
   const updateConversation = (sessionId, updater) => {
     setConversations((prev) =>
-      prev.map((c) =>
-        c.sessionId === sessionId
-          ? { ...updater(c), updatedAt: new Date().toISOString() }
-          : c
-      )
+      prev.map((c) => c.sessionId === sessionId ? { ...updater(c), updatedAt: new Date().toISOString() } : c)
     );
   };
 
@@ -222,11 +168,7 @@ const ChatbotWidget = () => {
 
   const handleDeleteConversation = async (sessionId) => {
     if (isAuthenticated) {
-      try {
-        await api.delete(`/health/chat/sessions/${sessionId}`);
-      } catch {
-        console.warn('Không xóa được cuộc trò chuyện trên server');
-      }
+      try { await api.delete(`/health/chat/sessions/${sessionId}`); } catch { }
     }
     setConversations((prev) => {
       const next = prev.filter((c) => c.sessionId !== sessionId);
@@ -237,35 +179,18 @@ const ChatbotWidget = () => {
       }
       return next.length ? next : [createConversation()];
     });
-    if (editingSessionId === sessionId) {
-      setEditingSessionId(null);
-      setEditTitle('');
-    }
+    if (editingSessionId === sessionId) { setEditingSessionId(null); setEditTitle(''); }
   };
 
-  const startRename = (c) => {
-    setEditingSessionId(c.sessionId);
-    setEditTitle(c.title);
-  };
-
-  const cancelRename = () => {
-    setEditingSessionId(null);
-    setEditTitle('');
-  };
+  const startRename = (c) => { setEditingSessionId(c.sessionId); setEditTitle(c.title); };
+  const cancelRename = () => { setEditingSessionId(null); setEditTitle(''); };
 
   const submitRename = async (sessionId) => {
     const title = editTitle.trim();
-    if (!title) {
-      cancelRename();
-      return;
-    }
+    if (!title) { cancelRename(); return; }
     updateConversation(sessionId, (c) => ({ ...c, title }));
     if (isAuthenticated) {
-      try {
-        await api.patch(`/health/chat/sessions/${sessionId}`, { title });
-      } catch {
-        console.warn('Không đổi tên được cuộc trò chuyện trên server');
-      }
+      try { await api.patch(`/health/chat/sessions/${sessionId}`, { title }); } catch { }
     }
     cancelRename();
   };
@@ -287,28 +212,17 @@ const ChatbotWidget = () => {
   const handleSend = async (text, files = []) => {
     const sessionId = activeConversation?.sessionId || activeSessionId;
     const userMessage = {
-      id: `user-${Date.now()}`,
-      from: 'user',
-      text,
-      attachments: files.map(({ name, size, sizeLabel, type }) => ({
-        name,
-        size,
-        sizeLabel,
-        type,
-        status: 'uploading',
-      })),
+      id: `user-${Date.now()}`, from: 'user', text,
+      attachments: files.map(({ name, size, sizeLabel, type }) => ({ name, size, sizeLabel, type, status: 'uploading' })),
     };
     const msgBefore = messages;
     const firstUser = !msgBefore.some((m) => m.from === 'user');
-
     updateConversation(sessionId, (c) => ({
       ...c,
       title: firstUser ? getConversationTitle(text) : c.title,
       messages: [...c.messages, userMessage],
     }));
-
     setIsTyping(true);
-
     try {
       if (files.length > 0) {
         const docs = await uploadDocuments(files);
@@ -317,96 +231,55 @@ const ChatbotWidget = () => {
           messages: c.messages.map((m) =>
             m.id === userMessage.id
               ? {
-                  ...m,
-                  attachments: m.attachments.map((a) => {
-                    const u = docs.find((d) => d.filename === a.name);
-                    return u ? { ...a, status: 'processed', chunkCount: u.chunk_count } : a;
-                  }),
-                }
+                ...m, attachments: m.attachments.map((a) => {
+                  const u = docs.find((d) => d.filename === a.name);
+                  return u ? { ...a, status: 'processed', chunkCount: u.chunk_count } : a;
+                })
+              }
               : m
           ),
         }));
       }
-
       const response = await api.post('/health/chat', {
-        message: text,
-        session_id: sessionId,
-        history: toHistory(msgBefore),
-        use_saved_bmi: true,
-        save_history: isAuthenticated,
-        use_rag: true,
+        message: text, session_id: sessionId, history: toHistory(msgBefore),
+        use_saved_bmi: true, save_history: isAuthenticated, use_rag: true,
       });
-
       const botMessage = {
-        id: `bot-${Date.now()}`,
-        from: 'bot',
+        id: `bot-${Date.now()}`, from: 'bot',
         text: response.data?.reply || 'Baymax chưa nhận được phản hồi phù hợp.',
         sources: response.data?.sources || [],
       };
-
       updateConversation(sessionId, (c) => ({ ...c, messages: [...c.messages, botMessage] }));
     } catch (error) {
       const detail = error.response?.data?.detail;
       updateConversation(sessionId, (c) => ({
         ...c,
-        messages: [
-          ...c.messages,
-          {
-            id: `error-${Date.now()}`,
-            from: 'bot',
-            isError: true,
-            text:
-              typeof detail === 'string'
-                ? detail
-                : 'Hiện chưa xử lý được yêu cầu. Vui lòng thử lại.',
-          },
-        ],
+        messages: [...c.messages, {
+          id: `error-${Date.now()}`, from: 'bot', isError: true,
+          text: typeof detail === 'string' ? detail : 'Hiện chưa xử lý được yêu cầu. Vui lòng thử lại.',
+        }],
       }));
-    } finally {
-      setIsTyping(false);
-    }
+    } finally { setIsTyping(false); }
   };
 
   const handleRagUpload = async (fileList) => {
     const mapped = Array.from(fileList)
       .filter((f) => /\.(pdf|docx|txt)$/i.test(f.name))
       .slice(0, 5)
-      .map((f) => ({
-        id: `${f.name}-${f.size}`,
-        name: f.name,
-        size: f.size,
-        sizeLabel: formatSize(f.size),
-        type: f.type,
-        rawFile: f,
-      }));
+      .map((f) => ({ id: `${f.name}-${f.size}`, name: f.name, size: f.size, sizeLabel: formatSize(f.size), type: f.type, rawFile: f }));
     if (!mapped.length) return;
-    try {
-      await uploadDocuments(mapped);
-    } catch {}
+    try { await uploadDocuments(mapped); } catch { }
   };
 
   const handleDeleteDocument = async (docId) => {
     try {
       await api.delete(`/health/documents/${docId}`);
       loadRagDocuments();
-    } catch {}
+    } catch { }
   };
 
-  if (!isOpen) {
-    return (
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        aria-label="Mở chatbot Baymax"
-        className="chatwidget-fab"
-      >
-        <MessageCircle size={26} />
-      </button>
-    );
-  }
-
   return (
-    <div className="chatwidget-window">
+    <div className="chatpage-root">
       <ChatSidebar
         conversations={filteredConversations}
         activeSessionId={activeSessionId}
@@ -425,32 +298,31 @@ const ChatbotWidget = () => {
         user={user}
         isAuthenticated={isAuthenticated}
       />
-
       <ChatArea
         messages={messages}
         isTyping={isTyping}
         onSend={handleSend}
         activeTitle={activeConversation?.title}
         user={user}
-        showRagToggle
-        showRagPanel={showRagPanel}
-        onToggleRagPanel={() => setShowRagPanel((v) => !v)}
-        onClose={() => setIsOpen(false)}
       />
-
-      {showRagPanel && (
-        <RagPanel
-          documents={ragDocuments}
-          isLoading={isLoadingDocs}
-          onUpload={handleRagUpload}
-          onDelete={handleDeleteDocument}
-          suggestions={SUGGESTIONS}
-          onSuggestionClick={(s) => handleSend(s)}
-          isAuthenticated={isAuthenticated}
-        />
-      )}
+      <RagPanel
+        documents={ragDocuments}
+        isLoading={isLoadingDocs}
+        onUpload={handleRagUpload}
+        onDelete={handleDeleteDocument}
+        suggestions={SUGGESTIONS}
+        onSuggestionClick={(s) => handleSend(s)}
+        isAuthenticated={isAuthenticated}
+      />
     </div>
   );
 };
 
-export default ChatbotWidget;
+function formatSize(size) {
+  if (!size) return '0 B';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default ChatPage;
