@@ -1,3 +1,4 @@
+
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 import BaymaxLogo from './BaymaxLogo';
@@ -11,7 +12,7 @@ const navItems = [
 ];
 
 const Header = () => {
-  const { isAuthenticated, logout, openAuthModal } = useAuth();
+  const { isAuthenticated, user, logout, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const btnRef = useRef(null);
 
@@ -204,6 +205,19 @@ const Header = () => {
                   {item.label}
                 </NavLink>
               ))}
+              {/* Admin link */}
+              {isAuthenticated && user?.role === "admin" && (
+                <NavLink
+                  to="/admin"
+                  onClick={addRipple}
+                  className={({ isActive }) =>
+                    `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer
+                    ${isActive ? 'nav-pill-active' : 'text-slate-500 hover:text-red-500 hover:scale-105'}`
+                  }
+                >
+                  Trang quản trị
+                </NavLink>
+              )}
             </div>
 
             {/* Account button */}

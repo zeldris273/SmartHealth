@@ -47,6 +47,23 @@ export const AuthProvider = ({ children }) => {
     setAuthModalType(prev => prev === 'login' ? 'register' : 'login');
   };
 
+  const refreshProfile = async () => {
+    try {
+      console.log("Refreshing user profile...");
+      const updatedUser = await getProfileAPI();
+      console.log("Profile refreshed:", updatedUser);
+      if (updatedUser?.id) {
+        setUser(updatedUser);
+        // Cache the updated profile
+        localStorage.setItem('user_profile', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+    } catch (error) {
+      console.error('Refresh profile error:', error);
+      // Silently fail - just log the error without showing toast
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     const initAuth = async () => {
@@ -120,6 +137,23 @@ export const AuthProvider = ({ children }) => {
     initAuth();
     return () => { mounted = false; };
   }, []);
+
+  // Polling để cập nhật trạng thái online mỗi 1 phút
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const pollProfile = async () => {
+      try {
+        await refreshProfile();
+      } catch (error) {
+        console.error("Failed to poll profile:", error);
+      }
+    };
+
+    const intervalId = setInterval(pollProfile, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, refreshProfile]);
 
   const login = async (credentials, rememberMe = false) => {
     console.log('Login function called with rememberMe:', rememberMe);
@@ -267,21 +301,6 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const refreshProfile = async () => {
-    try {
-      const updatedUser = await getProfileAPI();
-      if (updatedUser?.id) {
-        setUser(updatedUser);
-        // Cache the updated profile
-        localStorage.setItem('user_profile', JSON.stringify(updatedUser));
-        return updatedUser;
-      }
-    } catch (error) {
-      console.error('Refresh profile error:', error);
-      // Silently fail - just log the error without showing toast
     }
   };
 

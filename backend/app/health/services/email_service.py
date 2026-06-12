@@ -46,3 +46,49 @@ class EmailService:
                 settings.SMTP_PASSWORD,
             )
             server.send_message(message)
+    
+    @staticmethod
+    def send_admin_notification_email(
+        user_full_name: str,
+        user_email: str,
+        ticket_subject: str,
+        message_content: str
+    ) -> None:
+        """Gửi email thông báo đến admin khi có tin nhắn mới từ user và admin offline."""
+        print("=== EmailService.send_admin_notification_email starting ===")
+        print(f"SMTP_USER: {settings.SMTP_USER}")
+        print(f"ADMIN_EMAIL: {settings.ADMIN_EMAIL}")
+        
+        template = env.get_template("admin_notification_email.html")
+        html_content = template.render(
+            user_full_name=user_full_name,
+            user_email=user_email,
+            ticket_subject=ticket_subject,
+            message_content=message_content
+        )
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = f"[{settings.SMTP_FROM_NAME}] 🔔 Tin nhắn mới từ {user_full_name}"
+        message["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_USER}>"
+        message["To"] = settings.ADMIN_EMAIL
+        
+        print(f"Email to: {settings.ADMIN_EMAIL}, subject: {message['Subject']}")
+        
+        message.attach(MIMEText(html_content, "html", "utf-8"))
+
+        print("Connecting to SMTP server...")
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            print("EHLO done")
+            server.starttls()
+            print("STARTTLS done")
+            server.ehlo()
+            print("Second EHLO done")
+            print("Logging in to SMTP server...")
+            server.login(
+                settings.SMTP_USER,
+                settings.SMTP_PASSWORD,
+            )
+            print("Login done, sending message...")
+            server.send_message(message)
+            print("Message sent!")

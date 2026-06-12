@@ -57,6 +57,15 @@ class User(Base):
         server_default=func.now(),
         nullable=False,
     )
+    
+    # ---- TRẠNG THÁI ONLINE ----
+    last_online_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="Thời gian hoạt động cuối cùng"
+    )
 
     # Relationships
     oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")
+    support_tickets = relationship("SupportTicket", back_populates="user", cascade="all, delete-orphan")
