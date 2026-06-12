@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, status, BackgroundTasks, Response, Request, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
 from app.health.core.config import settings
 from app.health.core.dependencies import get_current_user
@@ -113,9 +115,35 @@ def refresh(
     "/logout",
     status_code=status.HTTP_200_OK,
 )
-def logout(response: Response):
-    """Xóa refresh token cookie — đăng xuất an toàn."""
+def logout(
+    response: Response,
+    db: Session = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False)),
+):
+    """Xóa refresh token cookie — đăng xuất an toàn, đồng thời cập nhật last_online_at về quá khứ để offline."""
     _clear_refresh_cookie(response)
+    
+    # Nếu có token hợp lệ, cập nhật last_online_at
+    if credentials:
+        try:
+            from jose import jwt
+            from app.health.core.config import settings
+            payload = jwt.decode(
+                credentials.credentials,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+            )
+            user_id = int(payload.get("sub"))
+            user = db.query(User).filter(User.id == user_id).first()
+            
+            if user:
+                # Cập nhật last_online_at về quá khứ để đánh dấu người dùng offline ngay lập tức
+                from datetime import timedelta
+                user.last_online_at = datetime.now(timezone.utc) - timedelta(hours=1)
+                db.commit()
+        except Exception:
+            pass  # Bỏ qua nếu token không hợp lệ
+    
     return {"message": "Logged out successfully"}
 
 
@@ -125,8 +153,69 @@ def logout(response: Response):
 )
 def get_profile(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    # Cập nhật thời gian last_online_at mỗi khi người dùng lấy thông tin cá nhân
+    print(f"Updating last_online_at for user: {current_user.email}, old: {current_user.last_online_at}")
+    current_user.last_online_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(current_user)
+    print(f"Updated last_online_at: {current_user.last_online_at}")
     return current_user
+
+
+@router.get(
+    "/admin/online-status",
+    tags=["Admin Status"],
+)
+def get_admin_online_status(
+    db: Session = Depends(get_db),
+):
+    """
+    Trả về trạng thái online của admin: nếu có ít nhất 1 admin online trong 30 giây gần đây
+    """
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    thirty_seconds_ago = now - timedelta(seconds=30)
+    
+    print(f"=== Checking admin online status ===")
+    print(f"Current UTC time: {now}")
+    print(f"Thirty seconds ago UTC: {thirty_seconds_ago}")
+    
+    # Lấy tất cả admin và kiểm tra thủ công, chuyển đổi timezone nếu cần
+    all_admins = db.query(User).filter(User.role == "admin").all()
+    print(f"Found {len(all_admins)} admin(s) in database")
+    admin_online = None
+    
+    for admin in all_admins:
+        print(f"\nChecking admin: {admin.email}")
+        print(f"  - raw last_online_at: {admin.last_online_at}")
+        print(f"  - raw last_online_at type: {type(admin.last_online_at)}")
+        print(f"  - raw last_online_at tzinfo: {admin.last_online_at.tzinfo}")
+        
+        # Đảm bảo last_online_at là timezone-aware
+        if admin.last_online_at.tzinfo is None:
+            # Nếu không có timezone, giả sử nó là UTC
+            admin_last_online = admin.last_online_at.replace(tzinfo=timezone.utc)
+            print(f"  - added UTC tzinfo: {admin_last_online}")
+        else:
+            # Chuyển đổi về UTC
+            admin_last_online = admin.last_online_at.astimezone(timezone.utc)
+            print(f"  - converted to UTC: {admin_last_online}")
+        
+        is_online = admin_last_online >= thirty_seconds_ago
+        print(f"  - is_online? {is_online} (admin_last_online >= thirty_seconds_ago)")
+        
+        if is_online:
+            admin_online = admin
+            print(f"  ✅ Admin {admin.email} is ONLINE!")
+            break
+    
+    print(f"\n=== Final result: admin_online is {admin_online is not None} ===")
+    
+    return {
+        "is_admin_online": admin_online is not None
+    }
 
 
 # =================================================================

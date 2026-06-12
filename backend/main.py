@@ -11,6 +11,7 @@ from app.health.api.health_tips import router as health_tips_router
 from app.health.api.chat import router as chat_router
 from app.health.api.documents import router as documents_router
 from app.health.api.otp import router as otp_router
+from app.health.api.support import router as support_router
 
 from database import Base, engine
 
@@ -52,6 +53,7 @@ app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(otp_router)
 app.include_router(google_oauth_router)
+app.include_router(support_router)
 
 
 @app.get("/")

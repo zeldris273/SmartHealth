@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     SMTP_USER: str  # Pydantic tự động đọc từ biến SMTP_USER trong file .env
     SMTP_PASSWORD: str  # Mã 16 ký tự màu vàng của Google
     SMTP_FROM_NAME: str = "SmartHealth"
+    ADMIN_EMAIL: str = "kiettuan.dev@gmail.com"  # Địa chỉ email của admin để nhận thông báo
     
     # --- CẤU HÌNH GOOGLE OAUTH2 ---
     GOOGLE_CLIENT_ID: str | None = None

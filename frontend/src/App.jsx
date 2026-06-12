@@ -8,8 +8,9 @@ import Profile from "./auth/pages/Profile";
 import Home from "./pages/Home";
 import Dashboard from "./pages/dashboard/Dashboard";
 import ChatPage from "./pages/ChatPage";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import Header from "./components/Header";
-import ChatbotWidget from "./components/customerservice/ChatbotWidget";
+import CSKHChatWidget from "./components/customerservice/CSKHChatWidget";
 
 const App = () => {
   return (
@@ -48,15 +49,23 @@ const AppContent = () => {
           }
         />
         <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-      <ChatbotWidget />
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <ChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+      <CSKHChatWidget />
     </AuthProvider>
   );
 };
