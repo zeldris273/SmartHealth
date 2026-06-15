@@ -19,7 +19,12 @@ class SupportTicket(Base):
     last_notification_sent_at = Column(DateTime(timezone=True), nullable=True)  # Lần cuối gửi email thông báo admin
     
     user = relationship("User", back_populates="support_tickets")
-    messages = relationship("SupportMessage", back_populates="ticket", cascade="all, delete-orphan")
+    messages = relationship(
+        "SupportMessage",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="SupportMessage.created_at, SupportMessage.id",
+    )
 
 
 class SupportMessage(Base):

@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Minus, X } from "lucide-react";
 import { useAuth } from "../../auth/context/AuthContext";
 import api from "../../services/api";
@@ -14,6 +14,13 @@ const initialMessages = [
   },
 ];
 
+const getSupportWsUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  return `${apiUrl.replace(/^http/, 'ws')}/support/ws`;
+};
+
+const isNotificationSupported = () => typeof window !== 'undefined' && 'Notification' in window;
+
 const CSKHChatWidget = () => {
   const { isAuthenticated, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -23,68 +30,15 @@ const CSKHChatWidget = () => {
   const [currentTicket, setCurrentTicket] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const lastAdminMessageIdRef = useRef(null); // Dùng useRef để cập nhật ngay lập tức
-  const [hasAskedPermission, setHasAskedPermission] = useState(false);
   const [showOfflineAutoMessage, setShowOfflineAutoMessage] = useState(false);
-  const [, forceUpdate] = useState(0); // Để trigger re-render
   const bottomRef = useRef(null);
+  const isOpenRef = useRef(false);
+  const isAdminOnlineRef = useRef(false);
+  const hasAskedPermissionRef = useRef(false);
 
-  // Polling để kiểm tra trạng thái admin online mỗi 5 giây
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      try {
-        const response = await api.get("/auth/admin/online-status");
-        setIsAdminOnline(response.data.is_admin_online);
-      } catch (error) {
-        console.error("Failed to check admin status:", error);
-        setIsAdminOnline(false);
-      }
-    };
-
-    checkAdminStatus();
-    const intervalId = setInterval(checkAdminStatus, 5000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  // Hide auto-message immediately when admin comes online
-  useEffect(() => {
-    if (isAdminOnline) {
-      setShowOfflineAutoMessage(false);
-    }
-  }, [isAdminOnline]);
-
-  // Load user's tickets and check for new messages - pause when chat is closed
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadUserTickets();
-      // Only poll every 3 seconds when chat is open; poll every 10 seconds when closed
-      const pollInterval = isOpen ? 3000 : 10000;
-      const interval = setInterval(loadUserTickets, pollInterval);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, isOpen]);
-
-  // Ask for notification permission once
-  useEffect(() => {
-    if (!hasAskedPermission && Notification.permission === 'default') {
-      Notification.requestPermission();
-      setHasAskedPermission(true);
-    }
-  }, [hasAskedPermission]);
-
-  const loadUserTickets = async () => {
+  const loadUserTickets = useCallback(async () => {
     try {
-      // Always get the FRESHEST admin status directly from API
-      let latestIsAdminOnline = false;
-      try {
-        const statusResponse = await api.get("/auth/admin/online-status");
-        latestIsAdminOnline = statusResponse.data.is_admin_online;
-        // Also update the state so the UI indicator is correct
-        setIsAdminOnline(latestIsAdminOnline);
-      } catch (error) {
-        console.error("Failed to check admin status in loadUserTickets:", error);
-        // Fallback to current state if API fails
-        latestIsAdminOnline = isAdminOnline;
-      }
+      const latestIsAdminOnline = isAdminOnlineRef.current;
       
       const response = await api.get('/support/tickets/me');
       const tickets = response.data;
@@ -117,10 +71,10 @@ const CSKHChatWidget = () => {
             setShowOfflineAutoMessage(false);
             
             // Only update unread count and show notification if chat is closed
-            if (!isOpen) {
+            if (!isOpenRef.current) {
               setUnreadCount(prev => prev + 1);
               
-              if (Notification.permission === 'granted') {
+              if (isNotificationSupported() && Notification.permission === 'granted') {
                 if (window.currentNotification) {
                   window.currentNotification.close();
                 }
@@ -143,12 +97,10 @@ const CSKHChatWidget = () => {
         // Determine if we should show the offline auto message
         let shouldShowAutoMessage = false;
         if (!latestIsAdminOnline && userMessages.length > 0) {
-          const lastUserMsg = userMessages[userMessages.length - 1];
           if (adminMessages.length === 0) {
             // No admin messages at all - show auto message
             shouldShowAutoMessage = true;
           } else {
-            const lastAdminMsg = adminMessages[adminMessages.length - 1];
             // Check if last user message is newer than last admin message (simplified check)
             // Since messages are in order, just check if last message is user message
             const lastMessage = ticketMessages[ticketMessages.length - 1];
@@ -171,7 +123,79 @@ const CSKHChatWidget = () => {
     } catch (error) {
       console.error('Failed to load tickets:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    isAdminOnlineRef.current = isAdminOnline;
+  }, [isAdminOnline]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      queueMicrotask(loadUserTickets);
+    }
+  }, [isAuthenticated, loadUserTickets]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (!token) return;
+
+    let socket;
+    let reconnectTimer;
+    let shouldReconnect = true;
+
+    const connect = () => {
+      socket = new WebSocket(`${getSupportWsUrl()}?token=${encodeURIComponent(token)}`);
+
+      socket.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+
+        if (payload.type === 'admin_status') {
+          setIsAdminOnline(payload.is_admin_online);
+          if (payload.is_admin_online) {
+            setShowOfflineAutoMessage(false);
+          }
+          return;
+        }
+
+        if (['ticket_created', 'message_created', 'ticket_status_updated'].includes(payload.type)) {
+          loadUserTickets();
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error('Support websocket error:', error);
+      };
+
+      socket.onclose = () => {
+        if (shouldReconnect) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      shouldReconnect = false;
+      clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [isAuthenticated, loadUserTickets]);
+
+  // Ask for notification permission once
+  useEffect(() => {
+    if (!isNotificationSupported()) return;
+    if (!hasAskedPermissionRef.current && Notification.permission === 'default') {
+      hasAskedPermissionRef.current = true;
+      Notification.requestPermission();
+    }
+  }, []);
 
   const handleSend = async (text) => {
     const userMessage = { id: `user-${Date.now()}`, from: "user", text };
@@ -201,21 +225,10 @@ const CSKHChatWidget = () => {
 
       setTimeout(async () => {
         setIsTyping(false);
-        // Recheck admin status to get the latest value
-        try {
-          const response = await api.get("/auth/admin/online-status");
-          const latestIsAdminOnline = response.data.is_admin_online;
-          if (!latestIsAdminOnline) {
-            setShowOfflineAutoMessage(true);
-          } else {
-            setShowOfflineAutoMessage(false);
-          }
-        } catch (error) {
-          console.error("Failed to check admin status in timeout:", error);
-          // Fallback to current state if API fails
-          if (!isAdminOnline) {
-            setShowOfflineAutoMessage(true);
-          }
+        if (!isAdminOnlineRef.current) {
+          setShowOfflineAutoMessage(true);
+        } else {
+          setShowOfflineAutoMessage(false);
         }
       }, 800);
     } catch (error) {
@@ -228,9 +241,9 @@ const CSKHChatWidget = () => {
     setIsOpen(true);
     setUnreadCount(0);
     
-    if (Notification.permission === 'default' && !hasAskedPermission) {
+    if (isNotificationSupported() && Notification.permission === 'default' && !hasAskedPermissionRef.current) {
+      hasAskedPermissionRef.current = true;
       Notification.requestPermission();
-      setHasAskedPermission(true);
     }
   };
 
