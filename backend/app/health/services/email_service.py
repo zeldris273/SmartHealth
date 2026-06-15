@@ -49,6 +49,7 @@ class EmailService:
     
     @staticmethod
     def send_admin_notification_email(
+        admin_emails: list[str],
         user_full_name: str,
         user_email: str,
         ticket_subject: str,
@@ -57,7 +58,9 @@ class EmailService:
         """Gửi email thông báo đến admin khi có tin nhắn mới từ user và admin offline."""
         print("=== EmailService.send_admin_notification_email starting ===")
         print(f"SMTP_USER: {settings.SMTP_USER}")
-        print(f"ADMIN_EMAIL: {settings.ADMIN_EMAIL}")
+        print(f"ADMIN_EMAILS: {admin_emails}")
+        if not admin_emails:
+            return
         
         template = env.get_template("admin_notification_email.html")
         html_content = template.render(
@@ -70,9 +73,9 @@ class EmailService:
         message = MIMEMultipart("alternative")
         message["Subject"] = f"[{settings.SMTP_FROM_NAME}] 🔔 Tin nhắn mới từ {user_full_name}"
         message["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_USER}>"
-        message["To"] = settings.ADMIN_EMAIL
+        message["To"] = ", ".join(admin_emails)
         
-        print(f"Email to: {settings.ADMIN_EMAIL}, subject: {message['Subject']}")
+        print(f"Email to: {admin_emails}, subject: {message['Subject']}")
         
         message.attach(MIMEText(html_content, "html", "utf-8"))
 

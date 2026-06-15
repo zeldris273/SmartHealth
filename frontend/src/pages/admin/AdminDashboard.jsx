@@ -1,13 +1,25 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, MessageSquare, BarChart3, Settings, ChevronRight, Home, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import ChatBubble from '../../components/chatbot/ChatBubble';
-import { useAuth } from '../../auth/context/AuthContext';
+
+const getSupportWsUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  return `${apiUrl.replace(/^http/, 'ws')}/support/ws`;
+};
+
+const statusLabels = {
+  all: 'Tất cả',
+  open: 'Mới',
+  in_progress: 'Đang xử lý',
+  closed: 'Xong',
+};
+
+const isNotificationSupported = () => typeof window !== 'undefined' && 'Notification' in window;
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
   const [activeItem, setActiveItem] = useState('cskh');
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -15,7 +27,12 @@ const AdminDashboard = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [hasNewTicketNotification, setHasNewTicketNotification] = useState(false);
+  const [ticketFilter, setTicketFilter] = useState('all');
   const messagesEndRef = useRef(null);
+  const selectedTicketRef = useRef(null);
+  const lastNotifiedTicketIdRef = useRef(null);
+  const lastNotifiedMessageIdRef = useRef(null);
+  const previousTicketsCountRef = useRef(0);
 
   const sidebarItems = [
     { id: 'cskh', label: 'Chăm sóc khách hàng', icon: <Users /> },
@@ -28,138 +45,62 @@ const AdminDashboard = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Load all tickets for admin
-  useEffect(() => {
-    if (activeItem === 'cskh') {
-      loadTickets();
-      
-      // Poll for ticket updates every 5 seconds
-      const interval = setInterval(loadTickets, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [activeItem]);
+  const showAdminNotification = useCallback((title, body) => {
+    if (!isNotificationSupported() || Notification.permission !== 'granted') return;
 
-  // Poll for new messages when a ticket is selected
-  useEffect(() => {
-    if (selectedTicket) {
-      const interval = setInterval(() => {
-        loadTicketDetail(selectedTicket.id);
-      }, 3000);
-      return () => clearInterval(interval);
+    if (window.adminNotification) {
+      window.adminNotification.close();
     }
-  }, [selectedTicket]);
 
-  // Poll /auth/me every 5 seconds to keep admin's last_online_at updated (so backend knows admin is online)
-  useEffect(() => {
-    const updateAdminStatus = async () => {
-      try {
-        await api.get("/auth/me");
-      } catch (error) {
-        console.error("Failed to update admin online status:", error);
+    window.adminNotification = new Notification(title, {
+      body,
+      icon: 'https://cdn-icons-png.flaticon.com/512/633/633611.png'
+    });
+
+    setTimeout(() => {
+      if (window.adminNotification) {
+        window.adminNotification.close();
       }
-    };
-
-    // Call immediately on mount
-    updateAdminStatus();
-
-    // Then call every 5 seconds
-    const interval = setInterval(updateAdminStatus, 5000);
-    return () => clearInterval(interval);
+    }, 5000);
   }, []);
 
-  const [previousTicketsCount, setPreviousTicketsCount] = useState(0);
-
-  const [hasRequestedNotificationPermission, setHasRequestedNotificationPermission] = useState(false);
-  const [lastNotifiedTicketId, setLastNotifiedTicketId] = useState(null);
-  const [lastNotifiedMessageId, setLastNotifiedMessageId] = useState(null);
-
-  // Request notification permission once when component mounts
-  useEffect(() => {
-    if (Notification.permission === 'default' && !hasRequestedNotificationPermission) {
-      Notification.requestPermission().then(() => {
-        setHasRequestedNotificationPermission(true);
-      });
-    } else if (Notification.permission !== 'default') {
-      setHasRequestedNotificationPermission(true);
-    }
-  }, []);
-
-  const loadTickets = async () => {
+  const loadTickets = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/support/admin/tickets');
       const newTickets = response.data;
       
-      // Check for new tickets
-      if (newTickets.length > previousTicketsCount && previousTicketsCount > 0) {
-        const latestTicket = newTickets[newTickets.length - 1];
+      if (newTickets.length > previousTicketsCountRef.current && previousTicketsCountRef.current > 0) {
+        const latestTicket = newTickets[0];
         
-        if (latestTicket.id !== lastNotifiedTicketId) {
+        if (latestTicket.id !== lastNotifiedTicketIdRef.current) {
           setHasNewTicketNotification(true);
-          setLastNotifiedTicketId(latestTicket.id);
-          
-          // Show browser notification only if permission granted
-          if (Notification.permission === 'granted') {
-            // Close previous notification if exists
-            if (window.adminNotification) {
-              window.adminNotification.close();
-            }
-            
-            window.adminNotification = new Notification('Ticket mới từ khách hàng', {
-              body: `Có ticket mới: ${latestTicket.subject}`,
-              icon: 'https://cdn-icons-png.flaticon.com/512/633/633611.png'
-            });
-            
-            // Auto close notification after 5 seconds
-            setTimeout(() => {
-              if (window.adminNotification) {
-                window.adminNotification.close();
-              }
-            }, 5000);
-          }
+          lastNotifiedTicketIdRef.current = latestTicket.id;
+          showAdminNotification('Ticket mới từ khách hàng', `Có ticket mới: ${latestTicket.subject}`);
         }
       }
       
       setTickets(newTickets);
-      setPreviousTicketsCount(newTickets.length);
+      previousTicketsCountRef.current = newTickets.length;
     } catch (error) {
       console.error('Failed to load tickets:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [showAdminNotification]);
 
-  const loadTicketDetail = async (ticketId) => {
+  const loadTicketDetail = useCallback(async (ticketId) => {
     try {
       const response = await api.get(`/support/admin/tickets/${ticketId}`);
       const newTicket = response.data;
         
         // Check if there are new user messages
-        if (selectedTicket && selectedTicket.id === ticketId && newTicket.messages.length > 0) {
+        if (selectedTicketRef.current?.id === ticketId && newTicket.messages.length > 0) {
           const latestMessage = newTicket.messages[newTicket.messages.length - 1];
           
-          if (latestMessage.sender_id === newTicket.user_id && latestMessage.id !== lastNotifiedMessageId) {
-            setLastNotifiedMessageId(latestMessage.id);
-            
-            // Show browser notification only if permission granted
-            if (Notification.permission === 'granted') {
-              // Close previous notification if exists
-              if (window.adminNotification) {
-                window.adminNotification.close();
-              }
-              
-              window.adminNotification = new Notification(`Tin nhắn mới từ ${newTicket.user?.full_name || 'Khách hàng'}`, {
-                body: latestMessage.content,
-                icon: 'https://cdn-icons-png.flaticon.com/512/633/633611.png'
-              });
-              
-              // Auto close notification after 5 seconds
-              setTimeout(() => {
-                if (window.adminNotification) {
-                  window.adminNotification.close();
-                }
-              }, 5000);
-            }
+          if (latestMessage.sender_id === newTicket.user_id && latestMessage.id !== lastNotifiedMessageIdRef.current) {
+            lastNotifiedMessageIdRef.current = latestMessage.id;
+            showAdminNotification(`Tin nhắn mới từ ${newTicket.user?.full_name || 'Khách hàng'}`, latestMessage.content);
           }
         }
         
@@ -184,7 +125,69 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Failed to load ticket detail:', error);
     }
-  };
+  }, [showAdminNotification]);
+
+  useEffect(() => {
+    if (activeItem === 'cskh') {
+      queueMicrotask(loadTickets);
+    }
+  }, [activeItem, loadTickets]);
+
+  useEffect(() => {
+    selectedTicketRef.current = selectedTicket;
+  }, [selectedTicket]);
+
+  useEffect(() => {
+    if (activeItem !== 'cskh') return;
+
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (!token) return;
+
+    let socket;
+    let reconnectTimer;
+    let shouldReconnect = true;
+
+    const connect = () => {
+      socket = new WebSocket(`${getSupportWsUrl()}?token=${encodeURIComponent(token)}`);
+
+      socket.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+        if (!['ticket_created', 'message_created', 'ticket_status_updated'].includes(payload.type)) {
+          return;
+        }
+
+        loadTickets();
+        if (selectedTicketRef.current?.id === payload.ticket_id) {
+          loadTicketDetail(payload.ticket_id);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error('Support websocket error:', error);
+      };
+
+      socket.onclose = () => {
+        if (shouldReconnect) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      shouldReconnect = false;
+      clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [activeItem, loadTickets, loadTicketDetail]);
+
+  useEffect(() => {
+    if (!isNotificationSupported()) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -203,7 +206,6 @@ const AdminDashboard = () => {
       };
       setMessages(prev => [...prev, formattedNewMessage]);
       setNewMessage('');
-      // Refresh tickets list to update updated_at
       loadTickets();
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -221,6 +223,11 @@ const AdminDashboard = () => {
       console.error('Failed to update status:', error);
     }
   };
+
+  const activeTicketsCount = tickets.filter((ticket) => ticket.status !== 'closed').length;
+  const filteredTickets = tickets.filter((ticket) => (
+    ticketFilter === 'all' ? ticket.status !== 'closed' : ticket.status === ticketFilter
+  ));
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -298,18 +305,34 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900">Danh sách yêu cầu</h3>
-                      <p className="text-sm text-gray-500">{tickets.length} ticket hiện tại</p>
+                      <p className="text-sm text-gray-500">{activeTicketsCount} ticket hiện tại</p>
                     </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {['all', 'open', 'in_progress', 'closed'].map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setTicketFilter(filter)}
+                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                          ticketFilter === filter
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {statusLabels[filter]}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto">
                   {loading ? (
                     <div className="p-6 text-center text-gray-500">Đang tải...</div>
-                  ) : tickets.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500">Chưa có ticket nào</div>
+                  ) : filteredTickets.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500">Không có ticket phù hợp</div>
                   ) : (
-                    tickets.map((ticket) => (
+                    filteredTickets.map((ticket) => (
                           <div
                             key={ticket.id}
                             onClick={() => {
@@ -337,7 +360,7 @@ const AdminDashboard = () => {
                                 'bg-green-100 text-green-800'
                               }`}>
                                 {ticket.status === 'open' ? 'Mới' :
-                                 ticket.status === 'in_progress' ? 'Đang xử lý' : 'Đóng'}
+                                 ticket.status === 'in_progress' ? 'Đang xử lý' : 'Xong'}
                               </span>
                             </div>
                             <p className="text-sm text-gray-500">
@@ -372,7 +395,7 @@ const AdminDashboard = () => {
                       >
                         <option value="open">Mới</option>
                         <option value="in_progress">Đang xử lý</option>
-                        <option value="closed">Đóng</option>
+                        <option value="closed">Xong</option>
                       </select>
                     </div>
 
