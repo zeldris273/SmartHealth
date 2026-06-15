@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -59,3 +59,9 @@ app.include_router(support_router)
 @app.get("/")
 def root():
     return {"message": "SmartHealth API is running"} 
+
+@app.websocket("/test-ws")
+async def test_websocket(websocket: WebSocket):
+    await websocket.accept()
+    await websocket.send_text("Hello WebSocket!")
+    await websocket.close()

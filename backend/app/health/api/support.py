@@ -304,20 +304,12 @@ async def send_message_to_ticket(
 # ADMIN ENDPOINTS (cho quản trị viên)
 # ================================
 
-def update_admin_online_status(current_user: User, db: Session):
-    """Helper function to update admin's last_online_at"""
-    current_user.last_online_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(current_user)
-
-
 @router.get("/admin/tickets", response_model=List[SupportTicketResponse])
 def get_all_tickets(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db)
 ):
     """Lấy tất cả tickets (chỉ admin)."""
-    update_admin_online_status(current_user, db)
     tickets = db.query(SupportTicket).options(
         joinedload(SupportTicket.user),
         joinedload(SupportTicket.messages)
@@ -332,7 +324,6 @@ def get_ticket_detail(
     db: Session = Depends(get_db)
 ):
     """Lấy chi tiết ticket (chỉ admin)."""
-    update_admin_online_status(current_user, db)
     ticket = db.query(SupportTicket).options(
         joinedload(SupportTicket.user),
         joinedload(SupportTicket.messages).joinedload(SupportMessage.sender)
@@ -355,7 +346,6 @@ async def admin_send_message(
     db: Session = Depends(get_db)
 ):
     """Admin gửi tin nhắn vào ticket."""
-    update_admin_online_status(current_user, db)
     ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
     
     if not ticket:
@@ -388,7 +378,6 @@ async def update_ticket_status(
     db: Session = Depends(get_db)
 ):
     """Cập nhật trạng thái ticket (open, in_progress, closed)."""
-    update_admin_online_status(current_user, db)
     new_status = status_update.get("status")
     if new_status not in ["open", "in_progress", "closed"]:
         raise HTTPException(

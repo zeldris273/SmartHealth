@@ -3,12 +3,14 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider } from "./auth/context/AuthContext";
 import ProtectedRoute from "./auth/components/ProtectedRoute";
+import AdminRoute from "./auth/components/AdminRoute";
 import AuthModal from "./auth/components/AuthModal";
 import Profile from "./auth/pages/Profile";
 import Home from "./pages/Home";
 import Dashboard from "./pages/dashboard/Dashboard";
 import ChatPage from "./pages/ChatPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AccessDenied from "./pages/AccessDenied";
 import Header from "./components/Header";
 import CSKHChatWidget from "./components/customerservice/CSKHChatWidget";
 
@@ -59,11 +61,12 @@ const AppContent = () => {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminDashboard />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
+            <Route path="/access-denied" element={<AccessDenied />} />
           </Routes>
       <CSKHChatWidget />
     </AuthProvider>
