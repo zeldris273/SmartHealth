@@ -3,6 +3,7 @@ import { useAuth } from "../auth/context/AuthContext";
 import api from "../services/api";
 import ChatSidebar from "../components/chatbot/ChatSidebar";
 import ChatArea from "../components/chatbot/ChatArea";
+import { incrementNotificationCount } from "../utils/notificationUtils";
 
 const STORAGE_PREFIX = "smarthealth_chatbot_conversations";
 const ACTIVE_SESSION_PREFIX = "chat_session_id";
@@ -290,6 +291,8 @@ const ChatPage = () => {
         ...c,
         messages: [...c.messages, botMessage],
       }));
+      // Increment notification count when bot responds
+      incrementNotificationCount(1, user?.id);
     } catch (error) {
       const detail = error.response?.data?.detail;
       updateConversation(sessionId, (c) => ({
