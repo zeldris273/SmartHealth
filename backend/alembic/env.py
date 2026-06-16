@@ -19,9 +19,10 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from database import Base  # Đường dẫn import file chứa Base của Lạc nhé
-from app.health.models.user import User # Import model User để nó quét cột mới
-from app.health.models.email_otp import EmailOTP
+from app.health.models import User, EmailOTP, OAuthToken # Import models explicitly
+from app.health.core.config import settings
 target_metadata = Base.metadata
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")

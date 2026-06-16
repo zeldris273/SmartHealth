@@ -1,253 +1,226 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { X, Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import Input from './Input';
-import Button from './Button';
-import PasswordStrength from './PasswordStrength';
+import { X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import AuthForm from './AuthForm';
+import BaymaxLogo from '../../components/BaymaxLogo';
+import AuthSwapBurst from './AuthSwapBurst';
+
+const getPanelClass = (isLoginPanel, mode, isSwapping, slideDir) => {
+  const isActive = isLoginPanel ? mode === 'login' : mode === 'register';
+  const classes = ['auth-swap-panel'];
+
+  if (isSwapping && slideDir) {
+    if (slideDir === 'to-register') {
+      classes.push(isLoginPanel ? 'auth-swap-panel--slide-out-left' : 'auth-swap-panel--slide-in-right');
+    } else {
+      classes.push(isLoginPanel ? 'auth-swap-panel--slide-in-left' : 'auth-swap-panel--slide-out-right');
+    }
+  } else if (isActive) {
+    classes.push('auth-swap-panel--active');
+  } else {
+    classes.push('auth-swap-panel--inactive');
+  }
+
+  return classes.join(' ');
+};
 
 const AuthModal = () => {
-  const { isAuthModalOpen, closeAuthModal, openAuthModal, authModalType, toggleAuthModalType, login, register, isAuthenticated } = useAuth();
-  
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    otp: '',
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-
+  const { isAuthModalOpen, closeAuthModal, openAuthModal, authModalType, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/profile';
 
-  // Reset form when modal opens or toggles type
+  const [mode, setMode] = useState(authModalType);
+  const [slideDir, setSlideDir] = useState(null);
+  const [isSwapping, setIsSwapping] = useState(false);
+  const swapTimerRef = useRef(null);
+
+  // Sync mode with authModalType when modal opens
   useEffect(() => {
     if (isAuthModalOpen) {
-      setFormData({ email: '', password: '', confirmPassword: '', otp: '' });
-      setErrors({});
-      setShowPassword(false);
+      setMode(authModalType);
+      setIsSwapping(false);
+      setSlideDir(null);
     }
   }, [isAuthModalOpen, authModalType]);
 
+  // Clean up swap timer on unmount
+  useEffect(() => {
+    return () => {
+      if (swapTimerRef.current) clearTimeout(swapTimerRef.current);
+    };
+  }, []);
+
+  // Listen to redirect state or query params to automatically trigger opening the modal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasOpenLoginParam = params.get('openLogin') === 'true';
+
+    if ((location.state?.openLogin || hasOpenLoginParam) && !isAuthenticated && !isAuthModalOpen) {
+      openAuthModal('login');
+
+      // Clear the query parameter and location state
+      if (hasOpenLoginParam) {
+        params.delete('openLogin');
+        const newSearch = params.toString();
+        navigate(
+          {
+            pathname: location.pathname,
+            search: newSearch ? `?${newSearch}` : '',
+          },
+          { replace: true, state: {} }
+        );
+      } else {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [location, isAuthenticated, isAuthModalOpen, openAuthModal, navigate]);
+
+  // Close modal if authenticated while it is open
   useEffect(() => {
     if (isAuthenticated && isAuthModalOpen) {
       closeAuthModal();
     }
   }, [isAuthenticated, isAuthModalOpen, closeAuthModal]);
+  const isLogin = mode === 'login';
 
-  if (!isAuthModalOpen) return null;
-
-  const isLogin = authModalType === 'login';
-
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email address';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (!isLogin && formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    }
-
-    if (!isLogin) {
-      if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
-      }
-      if (!formData.otp) {
-        newErrors.otp = 'OTP is required';
-      } else if (formData.otp.length < 6) {
-        newErrors.otp = 'Invalid OTP format';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setIsSubmitting(true);
-    
-    if (isLogin) {
-      const result = await login({ email: formData.email, password: formData.password }, rememberMe);
-      if (result.success) {
-        closeAuthModal();
-        navigate(from, { replace: true });
-      }
-    } else {
-      // Using email prefix as full_name for backend compatibility since we only have Email field now
-      const username = formData.email.split('@')[0];
-      const result = await register({ fullName: username, email: formData.email, password: formData.password, otp: formData.otp });
-      
-      if (result.success) {
-        closeAuthModal();
-        navigate('/login', { replace: true });
-      }
-    }
-    
-    setIsSubmitting(false);
-  };
-
-  // Click outside to close
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
       closeAuthModal();
     }
   };
 
+  const switchMode = useCallback(
+    (next) => {
+      if (next === mode || isSwapping) return;
+
+      setSlideDir(next === 'register' ? 'to-register' : 'to-login');
+      setIsSwapping(true);
+      setMode(next);
+
+      if (swapTimerRef.current) clearTimeout(swapTimerRef.current);
+      swapTimerRef.current = setTimeout(() => {
+        setIsSwapping(false);
+        setSlideDir(null);
+      }, 780);
+    },
+    [mode, isSwapping]
+  );
+
+  if (!isAuthModalOpen) return null;
+
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-in fade-in duration-300"
+    <div
+      className="auth-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
-      <div className="relative w-full max-w-md overflow-hidden bg-white/80 border border-slate-200 shadow-2xl rounded-3xl backdrop-blur-xl animate-in zoom-in-95 duration-300">
-        
-        {/* Close Button */}
-        <button 
-          onClick={closeAuthModal}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors z-10"
-        >
-          <X size={20} />
-        </button>
-
-        {/* Modal Header */}
-        <div className="relative px-8 pt-10 pb-6 text-center">
-          <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-600/30 rounded-full blur-[60px]" />
-            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-rose-600/30 rounded-full blur-[60px]" />
-          </div>
-          
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </h2>
-          <p className="mt-2 text-sm text-slate-500">
-            {isLogin ? 'Sign in to access your dashboard' : 'Join SmartHealth today'}
-          </p>
+      <div
+        className={`auth-glass-layout relative z-10 w-full max-w-[420px] ${isSwapping ? 'auth-card--swapping' : ''}`}
+      >
+        {/* Floating Baymax Logo overlapping the glass card */}
+        <div className={`auth-glass-logo ${isSwapping ? 'auth-logo-swap-pop' : ''}`}>
+          <span className="auth-baymax-glow pointer-events-none absolute inset-0 scale-125 rounded-full bg-white/50 blur-2xl" />
+          <span className="relative block animate-heartbeat drop-shadow-lg">
+            <BaymaxLogo size={88} />
+          </span>
         </div>
 
-        {/* Modal Body (Form) */}
-        <div className="px-8 pb-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            <Input
-              label="Email Address"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              error={errors.email}
-              icon={Mail}
-            />
+        {/* The Glassmorphism Card */}
+        <div className="auth-glass-card">
+          {/* Close button nestled in the top-right of the glass panel */}
+          <button
+            onClick={closeAuthModal}
+            className="absolute right-4 top-4 z-20 rounded-full p-2 text-[#8f2c24]/50 transition-colors hover:bg-white/20 hover:text-[#8f2c24]"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
 
-            <div className="relative">
-              <Input
-                label="Password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                error={errors.password}
-                icon={Lock}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+          <h1 key={mode} className="auth-glass-title auth-glass-title--swap">
+            {isLogin ? 'Sign In' : 'Sign Up'}
+          </h1>
+          <p key={`sub-${mode}`} className="auth-glass-subtitle auth-glass-subtitle--swap">
+            {isLogin
+              ? 'Hello. I am Baymax — your healthcare companion.'
+              : 'Create your SmartHealth account with Baymax.'}
+          </p>
+
+          <div
+            className={[
+              'auth-swap-stage',
+              !isLogin ? 'auth-swap-stage--tall' : '',
+              isSwapping ? 'auth-swap-stage--swapping' : '',
+              slideDir ? `auth-swap-stage--${slideDir}` : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <AuthSwapBurst active={isSwapping} />
+
+            {/* Login panel */}
+            <div
+              className={getPanelClass(true, mode, isSwapping, slideDir)}
+              aria-hidden={mode !== 'login' && !isSwapping}
+            >
+              <div className={`auth-form-inner ${isSwapping && mode === 'login' ? 'auth-form-card--shine' : ''}`}>
+                <AuthForm
+                  mode="login"
+                  onSuccess={() => {
+                    closeAuthModal();
+                    navigate('/profile', { replace: true });
+                  }}
+                  onSwitchMode={() => switchMode('register')}
+                  stagger={mode === 'login' && !isSwapping}
+                  variant="glass"
+                />
+              </div>
             </div>
 
-            {!isLogin && (
-              <>
-                <PasswordStrength password={formData.password} />
-                
-                <Input
-                  label="Confirm Password"
-                  name="confirmPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  error={errors.confirmPassword}
-                  icon={Lock}
+            {/* Register panel */}
+            <div
+              className={getPanelClass(false, mode, isSwapping, slideDir)}
+              aria-hidden={mode !== 'register' && !isSwapping}
+            >
+              <div className={`auth-form-inner ${isSwapping && mode === 'register' ? 'auth-form-card--shine' : ''}`}>
+                <AuthForm
+                  mode="register"
+                  onSwitchMode={() => switchMode('login')}
+                  onRegisterSuccess={() => switchMode('login')}
+                  stagger={mode === 'register' && !isSwapping}
+                  variant="glass"
                 />
+              </div>
+            </div>
+          </div>
 
-                <Input
-                  label="One-Time Password (OTP)"
-                  name="otp"
-                  type="text"
-                  placeholder="Enter 6-digit OTP"
-                  value={formData.otp}
-                  onChange={handleChange}
-                  error={errors.otp}
-                  icon={ShieldCheck}
-                  maxLength={6}
-                />
+          <div className="auth-glass-footer">
+            {isLogin ? (
+              <>
+                <button type="button" className="auth-glass-footer-link">
+                  Forget Password?
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('register')}
+                  className="auth-glass-footer-link auth-glass-footer-link--accent"
+                >
+                  Signup
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-[#8f2c24]/70">Already registered?</span>
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  className="auth-glass-footer-link auth-glass-footer-link--accent"
+                >
+                  Sign in
+                </button>
               </>
             )}
-
-            {isLogin && (
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 bg-white text-red-600 focus:ring-red-500 focus:ring-2 cursor-pointer"
-                  />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 cursor-pointer">
-                    Remember me
-                  </label>
-                </div>
-                <button type="button" className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">
-                  Forgot password?
-                </button>
-              </div>
-            )}
-
-            <div className="pt-4">
-              <Button type="submit" className="w-full" isLoading={isSubmitting}>
-                {isLogin ? 'Sign in securely' : 'Create account'}
-              </Button>
-            </div>
-          </form>
-
-          {/* Toggle Link */}
-          <div className="mt-6 text-center">
-            <span className="text-sm text-slate-500">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-            </span>
-            <button
-              type="button"
-              onClick={() => navigate(isLogin ? '/register' : '/login')}
-              className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors focus:outline-none"
-            >
-              {isLogin ? 'Register' : 'Sign in'}
-            </button>
           </div>
         </div>
-
       </div>
     </div>
   );

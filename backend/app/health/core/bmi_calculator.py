@@ -160,6 +160,12 @@ class BMIResult:
     bmi_category_vi: str
     healthy_bmi_range: str
     healthy_weight_range_kg: str
+    wrist_circumference_cm: Optional[float] = None
+    ankle_circumference_cm: Optional[float] = None
+    wrist_to_height_ratio: Optional[float] = None
+    ankle_to_height_ratio: Optional[float] = None
+    body_frame_size: Optional[str] = None
+    healthy_weight_range_for_frame: Optional[str] = None
     tips: list[dict] = field(default_factory=list)
 
 
@@ -225,11 +231,115 @@ def get_healthy_weight_range(height_cm: float) -> tuple[float, float]:
     return min_weight, max_weight
 
 
+def calculate_additional_ratios(
+    height_cm: float,
+    wrist_circumference_cm: Optional[float] = None,
+    ankle_circumference_cm: Optional[float] = None,
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Tính các tỷ lệ bổ sung từ vòng cổ tay và cổ chân.
+
+    Args:
+        height_cm: Chiều cao (cm).
+        wrist_circumference_cm: Vòng cổ tay (cm, tuỳ chọn).
+        ankle_circumference_cm: Vòng cổ chân (cm, tuỳ chọn).
+
+    Returns:
+        Tuple (wrist_to_height_ratio, ankle_to_height_ratio).
+    """
+    wrist_ratio = None
+    ankle_ratio = None
+    
+    if wrist_circumference_cm and height_cm > 0:
+        wrist_ratio = round(wrist_circumference_cm / height_cm, 4)
+    
+    if ankle_circumference_cm and height_cm > 0:
+        ankle_ratio = round(ankle_circumference_cm / height_cm, 4)
+    
+    return wrist_ratio, ankle_ratio
+
+
+def get_body_frame_size(
+    height_cm: float,
+    wrist_circumference_cm: float,
+    gender: Optional[str] = None
+) -> str:
+    """
+    Xác định kích thước khung xương (small/medium/large) dựa trên tỷ lệ vòng cổ tay/chiều cao.
+
+    Args:
+        height_cm: Chiều cao (cm).
+        wrist_circumference_cm: Vòng cổ tay (cm).
+        gender: Giới tính (tuỳ chọn, dùng để điều chỉnh ngưỡng).
+
+    Returns:
+        "small", "medium" hoặc "large".
+    """
+    if height_cm <= 0 or wrist_circumference_cm <= 0:
+        return "medium"  # Mặc định nếu dữ liệu không hợp lệ
+    
+    ratio = wrist_circumference_cm / height_cm
+    
+    # Thresholds dựa trên các nghiên cứu phổ biến về body frame size
+    if gender == "female":
+        if ratio < 0.095:
+            return "small"
+        elif ratio < 0.105:
+            return "medium"
+        else:
+            return "large"
+    else:  # Male or other
+        if ratio < 0.100:
+            return "small"
+        elif ratio < 0.110:
+            return "medium"
+        else:
+            return "large"
+
+
+def get_ideal_weight_range_for_frame(
+    height_cm: float,
+    frame_size: str
+) -> Tuple[float, float]:
+    """
+    Tính khoảng cân nặng lý tưởng phù hợp với kích thước khung xương.
+
+    Args:
+        height_cm: Chiều cao (cm).
+        frame_size: Kích thước khung xương ("small", "medium", "large").
+
+    Returns:
+        Tuple (min_weight, max_weight) tính bằng kg.
+    """
+    # BMI chuẩn: 18.5 - 24.9
+    height_m = height_cm / 100
+    base_min_bmi = 18.5
+    base_max_bmi = 24.9
+    
+    # Điều chỉnh BMI theo khung xương
+    if frame_size == "small":
+        adjusted_min_bmi = base_min_bmi
+        adjusted_max_bmi = base_max_bmi - 1.0
+    elif frame_size == "large":
+        adjusted_min_bmi = base_min_bmi + 1.0
+        adjusted_max_bmi = base_max_bmi
+    else:  # medium
+        adjusted_min_bmi = base_min_bmi
+        adjusted_max_bmi = base_max_bmi
+    
+    min_weight = round(adjusted_min_bmi * (height_m ** 2), 1)
+    max_weight = round(adjusted_max_bmi * (height_m ** 2), 1)
+    
+    return min_weight, max_weight
+
+
 def process_bmi(
     weight_kg: float,
     height_cm: float,
     age: Optional[int] = None,
     gender: Optional[str] = None,
+    wrist_circumference_cm: Optional[float] = None,
+    ankle_circumference_cm: Optional[float] = None,
 ) -> BMIResult:
     """
     Hàm tổng hợp: tính BMI, phân loại và trả về gợi ý sức khoẻ.
@@ -239,6 +349,8 @@ def process_bmi(
         height_cm : Chiều cao (cm).
         age       : Tuổi (tuỳ chọn, hiện tại chưa dùng để phân loại riêng).
         gender    : Giới tính (tuỳ chọn, dành cho mở rộng sau).
+        wrist_circumference_cm : Vòng cổ tay (cm, tuỳ chọn).
+        ankle_circumference_cm : Vòng cổ chân (cm, tuỳ chọn).
 
     Returns:
         BMIResult chứa đầy đủ kết quả và gợi ý.
@@ -246,6 +358,17 @@ def process_bmi(
     bmi_value = calculate_bmi(weight_kg, height_cm)
     category = get_bmi_category(bmi_value)
     min_w, max_w = get_healthy_weight_range(height_cm)
+    wrist_ratio, ankle_ratio = calculate_additional_ratios(
+        height_cm, wrist_circumference_cm, ankle_circumference_cm
+    )
+    
+    # Tính thông tin về khung xương nếu có đủ dữ liệu
+    body_frame_size = None
+    healthy_weight_range_for_frame = None
+    if wrist_circumference_cm:
+        body_frame_size = get_body_frame_size(height_cm, wrist_circumference_cm, gender)
+        frame_min_w, frame_max_w = get_ideal_weight_range_for_frame(height_cm, body_frame_size)
+        healthy_weight_range_for_frame = f"{frame_min_w} – {frame_max_w} kg"
 
     return BMIResult(
         weight_kg=weight_kg,
@@ -255,5 +378,11 @@ def process_bmi(
         bmi_category_vi=category.category_vi,
         healthy_bmi_range="18.5 – 24.9",
         healthy_weight_range_kg=f"{min_w} – {max_w} kg",
+        wrist_circumference_cm=wrist_circumference_cm,
+        ankle_circumference_cm=ankle_circumference_cm,
+        wrist_to_height_ratio=wrist_ratio,
+        ankle_to_height_ratio=ankle_ratio,
+        body_frame_size=body_frame_size,
+        healthy_weight_range_for_frame=healthy_weight_range_for_frame,
         tips=category.tips,
     )

@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 try:
-    import google.generativeai as genai
-except ImportError:  # Cho phép chạy unit test trước khi cài google-generativeai
-    genai = None
-
-try:
     from openai import OpenAI
-except ImportError:  # Cho phép dùng Gemini khi chưa cài openai
+except ImportError:
     OpenAI = None
 
 from fastapi import HTTPException, status
@@ -24,7 +19,8 @@ HEALTH_KEYWORDS = {
     "dinh dưỡng", "dinh duong", "ăn", "an", "uống", "uong", "tập luyện", "tap luyen",
     "thể dục", "the duc", "giảm cân", "giam can", "tăng cân", "tang can", "ngủ", "ngu",
     "tim", "huyết áp", "huyet ap", "đường huyết", "duong huyet", "tiểu đường", "tieu duong",
-    "stress", "căng thẳng", "cang thang", "mệt", "met", "dị ứng", "di ung",
+    "stress", "căng thẳng", "cang thang", "mệt", "met", "dị ứng", "di ung", "tăng cơ", "tang co",
+    "protein", "carb", "chất béo", "chat beo", "tdee", "bmr",
 }
 
 
@@ -36,25 +32,30 @@ class AIResult:
 
 
 def get_ai_provider() -> str:
-    provider = (getattr(settings, "AI_PROVIDER", "gemini") or "gemini").strip().lower()
-    if provider not in {"gemini", "openai"}:
+    provider = (getattr(settings, "AI_PROVIDER", "openai") or "openai").strip().lower()
+    if provider != "openai":
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI_PROVIDER chỉ được là 'gemini' hoặc 'openai'.",
+            detail="Hiện tại hệ thống chỉ hỗ trợ AI_PROVIDER là 'openai'.",
         )
     return provider
 
 
 def get_model_name(provider: str) -> str:
-    if provider == "openai":
-        return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
-    return getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash") or "gemini-2.5-flash"
+    return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
 
 
 def is_health_related(message: str) -> bool:
-    """Kiểm tra nhanh để chặn câu hỏi ngoài phạm vi sức khỏe trước khi gọi AI."""
     normalized = message.strip().lower()
     return any(keyword in normalized for keyword in HEALTH_KEYWORDS)
+
+
+def is_health_related_with_context(message: str, history: list[ChatHistoryItem] | None = None) -> bool:
+    if is_health_related(message):
+        return True
+
+    history = history or []
+    return any(is_health_related(item.content) for item in history[-6:])
 
 
 def get_bmi_category_vi(bmi: float | None) -> str | None:
@@ -69,17 +70,24 @@ def get_bmi_category_vi(bmi: float | None) -> str | None:
     return "Béo phì"
 
 
-def build_prompt(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> str:
+def build_prompt(
+    message: str,
+    bmi: float | None = None,
+    history: list[ChatHistoryItem] | None = None,
+    health_context: str | None = None,
+    retrieved_context: str | None = None,
+) -> str:
     history = history or []
-    history_text = "\n".join(
-        f"{item.role}: {item.content}" for item in history[-10:]
-    )
+    history_text = "\n".join(f"{item.role}: {item.content}" for item in history[-10:])
 
     if bmi:
         category = get_bmi_category_vi(bmi)
         bmi_text = f"BMI hiện tại của người dùng: {bmi} ({category})."
     else:
         bmi_text = "Người dùng chưa có dữ liệu BMI hoặc chưa đăng nhập."
+
+    health_context = health_context or bmi_text
+    retrieved_context = retrieved_context or "Không có tài liệu liên quan được truy xuất."
 
     return f"""
 Bạn là chatbot hỗ trợ sức khỏe cho hệ thống SmartHealth.
@@ -91,10 +99,14 @@ Nguyên tắc bắt buộc:
 - Không chẩn đoán chắc chắn bệnh.
 - Không kê đơn thuốc, không chỉ định liều thuốc nguy hiểm.
 - Với triệu chứng nặng như khó thở, đau ngực, ngất, chảy máu nhiều, sốt cao kéo dài, hãy khuyên người dùng đi khám/cấp cứu.
-- Nếu có BMI, hãy cá nhân hóa lời khuyên dựa trên BMI đó.
+- Ưu tiên sử dụng ngữ cảnh tài liệu được truy xuất nếu phù hợp, nhưng không bịa nguồn hoặc nội dung không có trong tài liệu.
+- Luôn kết hợp câu hỏi hiện tại với hồ sơ sức khỏe cá nhân khi có dữ liệu.
 
-Thông tin người dùng:
-{bmi_text}
+Thông tin sức khỏe cá nhân:
+{health_context}
+
+Ngữ cảnh tài liệu truy xuất từ pgvector:
+{retrieved_context}
 
 Lịch sử hội thoại gần đây:
 {history_text if history_text else "Không có."}
@@ -104,34 +116,15 @@ Câu hỏi hiện tại:
 """.strip()
 
 
-def _ask_gemini(prompt: str) -> AIResult:
-    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "your-gemini-api-key-here":
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY chưa được cấu hình trong file .env.",
-        )
-    if genai is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Chưa cài thư viện google-generativeai. Hãy chạy: pip install -r requirements.txt",
-        )
-
-    model_name = get_model_name("gemini")
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name)
-    response = model.generate_content(prompt)
-    reply = getattr(response, "text", None)
-    if not reply:
-        raise ValueError("Gemini không trả về nội dung phản hồi.")
-    return AIResult(reply=reply.strip(), provider="gemini", model=model_name)
-
-
 def _ask_openai(prompt: str) -> AIResult:
-    if not getattr(settings, "OPENAI_API_KEY", None) or settings.OPENAI_API_KEY == "your-openai-api-key-here":
+    api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
+
+    if not api_key or api_key in ["your-openai-api-key-here", ""]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OPENAI_API_KEY chưa được cấu hình trong file .env.",
         )
+
     if OpenAI is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -139,26 +132,44 @@ def _ask_openai(prompt: str) -> AIResult:
         )
 
     model_name = get_model_name("openai")
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    response = client.responses.create(model=model_name, input=prompt)
-    reply = getattr(response, "output_text", None)
+    client = OpenAI(api_key=api_key)
+
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        timeout=20.0,
+    )
+
+    reply = response.choices[0].message.content
     if not reply:
         raise ValueError("OpenAI không trả về nội dung phản hồi.")
+
     return AIResult(reply=reply.strip(), provider="openai", model=model_name)
 
 
-def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> AIResult:
-    if not is_health_related(message):
+def ask_ai(
+    message: str,
+    bmi: float | None = None,
+    history: list[ChatHistoryItem] | None = None,
+    health_context: str | None = None,
+    retrieved_context: str | None = None,
+) -> AIResult:
+    if not is_health_related_with_context(message, history):
         provider = get_ai_provider()
         return AIResult(reply=OFF_TOPIC_RESPONSE, provider=provider, model=get_model_name(provider))
 
-    prompt = build_prompt(message, bmi, history)
+    prompt = build_prompt(
+        message=message,
+        bmi=bmi,
+        history=history,
+        health_context=health_context,
+        retrieved_context=retrieved_context,
+    )
     provider = get_ai_provider()
 
     try:
-        if provider == "openai":
-            return _ask_openai(prompt)
-        return _ask_gemini(prompt)
+        return _ask_openai(prompt)
     except HTTPException:
         raise
     except Exception as exc:
@@ -166,13 +177,3 @@ def ask_ai(message: str, bmi: float | None = None, history: list[ChatHistoryItem
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Không thể gọi {provider.upper()} API: {exc}",
         )
-
-
-# Giữ tên hàm cũ để không làm hỏng code/test cũ nếu có import ask_gemini.
-def ask_gemini(message: str, bmi: float | None = None, history: list[ChatHistoryItem] | None = None) -> str:
-    old_provider = getattr(settings, "AI_PROVIDER", "gemini")
-    try:
-        settings.AI_PROVIDER = "gemini"
-        return ask_ai(message=message, bmi=bmi, history=history).reply
-    finally:
-        settings.AI_PROVIDER = old_provider

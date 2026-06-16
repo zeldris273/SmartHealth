@@ -1,4 +1,6 @@
 import random
+import logging
+import smtplib
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, BackgroundTasks
@@ -6,6 +8,8 @@ from fastapi import HTTPException, status, BackgroundTasks
 from app.health.core.config import settings
 from app.health.models.email_otp import EmailOTP
 from app.health.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 
 class OTPService:
     @staticmethod
@@ -18,7 +22,7 @@ class OTPService:
         db: Session,
         email: str,
         purpose: str,
-        background_tasks: BackgroundTasks  # Thêm BackgroundTasks để xử lý gửi mail ngầm
+        background_tasks: BackgroundTasks | None = None
     ) -> dict:
         # 1. KIỂM TRA COOLDOWN (Chặn spam gửi lại mã quá nhanh)
         last_otp = (
@@ -52,10 +56,25 @@ class OTPService:
         db.add(otp)
         db.commit()
 
-        # 3. GỬI MAIL BẤT ĐỒNG BỘ (Chuẩn Senior giúp API phản hồi trong 0.05s)
-        background_tasks.add_task(EmailService.send_otp_email, email, otp_code)
+        try:
+            if settings.SMTP_USER == "placeholder@example.com":
+                # Chế độ thử nghiệm cục bộ: in trực tiếp ra console của Uvicorn để dev copy
+                print("\n" + "="*60)
+                print(f"🔥 [DEVELOPER MODE] MÃ OTP CỦA BẠN LÀ: {otp_code} 🔥")
+                print(f"👉 Email nhận: {email} | Mục đích: {purpose}")
+                print("="*60 + "\n")
+            else:
+                EmailService.send_otp_email(email, otp_code)
+        except Exception as exc:
+            # Nếu gửi mail thật lỗi nhưng ta muốn hỗ trợ dev test nhanh mà không bị lỗi 502 chặn lại
+            print("\n" + "="*60)
+            print(f"⚠️ [SMTP ERROR] Gửi email thất bại: {str(exc)}")
+            print(f"🔥 MÃ OTP ĐỂ TEST LÀ: {otp_code} 🔥")
+            print(f"👉 Email nhận: {email} | Mục đích: {purpose}")
+            print("="*60 + "\n")
+            logger.exception("Gửi email thất bại nhưng giữ lại OTP để test cục bộ.")
 
-        return {"message": "Mã OTP đã được gửi thành công qua Email của bạn."}
+        return {"message": "Mã OTP đã được tạo thành công (Kiểm tra terminal backend để xem mã)."}
 
     @staticmethod
     def verify_otp(

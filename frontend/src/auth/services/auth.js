@@ -18,25 +18,53 @@ export const registerAPI = async (userData) => {
   }
 };
 
+export const sendOtpAPI = async ({ email, purpose = 'register' }) => {
+  try {
+    const response = await api.post('/otp/send', { email, purpose });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to send OTP');
+  }
+};
+
 export const getProfileAPI = async () => {
   try {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/users/me');
     return response.data; // backend returns UserResponse
   } catch (error) {
     throw error.response?.data || new Error('Failed to fetch profile');
   }
 };
 
-// Placeholder for future backend integration
 export const updateProfileAPI = async (profileData) => {
-  // TODO: Replace with real API call when backend is ready
-  // const response = await api.patch('/users/me', profileData);
-  // return response.data;
-  
-  // For now, simulate network delay and return the data as if successful
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true, ...profileData });
-    }, 800);
-  });
+  try {
+    const response = await api.patch('/users/me', profileData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to update profile');
+  }
+};
+
+export const googleOAuthLogin = () => {
+  // Redirect user to backend Google OAuth flow. The backend will handle redirect and cookie setting.
+  window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/google/login`;
+};
+
+// Keep existing googleLoginAPI for backward compatibility (may be deprecated)
+export const googleLoginAPI = async (googleToken) => {
+  try {
+    const response = await api.post('/auth/google-login', { token: googleToken });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Google login failed');
+  }
+};
+
+export const logoutAPI = async () => {
+  try {
+    const response = await api.post('/auth/logout');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Logout failed');
+  }
 };
