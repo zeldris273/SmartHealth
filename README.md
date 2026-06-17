@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat-square&logo=postgresql)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)](https://www.docker.com)
 
-[Features](#-features) · [Tech Stack](#-tech-stack) · [Getting Started](#-getting-started) · [Docker](#-docker-deployment) · [Testing](#-testing)
+[Features](#-features) · [Tech Stack](#-tech-stack) · [Getting Started](#-getting-started) · [Environment Variables](#-environment-variables) · [Docker](#-docker-deployment) · [Testing](#-testing)
 
 </div>
 
@@ -20,30 +20,38 @@
 
 | Feature | Description |
 |---|---|
-| 🔐 **Authentication** | Register, login, and JWT-based session management |
-| 👤 **Profile Management** | Update profile fields with role-based access control |
-| 📊 **BMI Tracker** | Calculate BMI and visualize history with charts |
-| ⚖️ **Weight Dashboard** | Track weight over time with interactive Recharts graphs |
-| 🔥 **Calorie Calculator** | Daily calorie estimation based on activity level |
-| 💡 **Health Tips** | Personalized tips based on your health data |
-| 📧 **OTP Verification** | Email-based one-time password for account security |
-| 🤖 **AI Chatbot** | Health-focused assistant powered by OpenAI GPT-4o |
+| 🔐 **Authentication** | Secure Register, login, and JWT-based session management. |
+| 🌐 **Google OAuth 2.0** | One-click login using Google accounts for better UX. |
+| 👤 **Profile Management** | Comprehensive profile tracking including age, weight, height, and fitness goals. |
+| 📊 **BMI Tracker** | Real-time BMI calculation with interactive historical charts. |
+| ⚖️ **Weight Dashboard** | Monitor weight fluctuations over time with sleek Recharts visualizations. |
+| 🔥 **Calorie Calculator** | Personalized TDEE/BMR estimation based on activity level and body metrics. |
+| 💡 **Health Tips** | AI-curated health advice tailored to your current health status. |
+| 📧 **OTP Verification** | Enhanced security with email-based One-Time Passwords for account recovery/verification. |
+| 🤖 **AI Chatbot (RAG)** | Smart assistant powered by GPT-4o-mini with Retrieval-Augmented Generation (RAG) for medical knowledge. |
+| 📂 **Document Management** | Admin capability to upload health documents for the AI to reference. |
 
 ---
 
 ## 🛠 Tech Stack
 
 **Frontend**
-- React 19 + Vite · Tailwind CSS 4 · React Router 7 · Axios · Recharts
+- **Framework:** React 19 + Vite
+- **Styling:** Tailwind CSS 4 (with soft "Baymax" aesthetic)
+- **Routing:** React Router 7
+- **Visualization:** Recharts
+- **HTTP Client:** Axios
 
 **Backend**
-- FastAPI · SQLAlchemy · Pydantic v2 · JWT Auth · Alembic
+- **Framework:** FastAPI (Python 3.11+)
+- **ORM:** SQLAlchemy + Alembic (Migrations)
+- **Validation:** Pydantic v2
+- **Security:** JWT Auth, Passlib (Bcrypt), OAuth 2.0
 
-**Database**
-- PostgreSQL 14+ (production) · SQLite (local dev)
-
-**AI & Infrastructure**
-- OpenAI API (GPT-4o-mini) · Docker Compose
+**AI & Database**
+- **AI Engine:** OpenAI API (GPT-4o-mini)
+- **Database:** PostgreSQL 14+ with `pgvector` for RAG capabilities (or SQLite for local dev)
+- **Email:** SMTP for OTP and notifications
 
 ---
 
@@ -54,22 +62,22 @@ SmartHealth/
 ├── backend/
 │   ├── alembic/                # Database migration scripts
 │   ├── app/health/
-│   │   ├── api/                # FastAPI route handlers
-│   │   ├── core/               # Config, security & business logic
+│   │   ├── api/                # FastAPI route handlers (BMI, Chat, OAuth, etc.)
+│   │   ├── core/               # Config, security, dependencies & business logic
 │   │   ├── models/             # SQLAlchemy database models
 │   │   ├── schemas/            # Pydantic validation schemas
-│   │   ├── services/           # Service / business logic layer
-│   │   ├── templates/          # Email templates (OTP, etc.)
-│   │   └── tests/              # Pytest test suite
-│   ├── main.py                 # FastAPI entrypoint
+│   │   ├── services/           # Service layer (AI, Auth, RAG, User services)
+│   │   ├── templates/          # HTML email templates
+│   │   └── tests/              # Comprehensive Pytest suite
+│   ├── main.py                 # FastAPI application entrypoint
 │   ├── database.py             # DB engine, session & Base setup
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── auth/               # Auth UI, context & services
-│   │   ├── components/         # Reusable UI components
-│   │   ├── pages/              # Application pages
-│   │   └── services/           # Axios API client
+│   │   ├── auth/               # Auth UI, Context (AuthContext) & Services
+│   │   ├── components/         # Reusable UI (Dashboard widgets, Chat bubbles)
+│   │   ├── pages/              # Main pages (Home, Dashboard, Admin)
+│   │   └── services/           # Centralized API client (Axios)
 │   ├── package.json
 │   └── vite.config.js
 ├── docker-compose.yml
@@ -82,10 +90,11 @@ SmartHealth/
 
 ### Prerequisites
 
-- Node.js 20+ & npm 10+
-- Python 3.11 or 3.12
-- PostgreSQL 14+ *(or SQLite for local dev)*
-- Docker & Docker Compose *(optional)*
+- **Node.js 20+** & **npm 10+**
+- **Python 3.11 or 3.12**
+- **PostgreSQL 14+** (Recommended) or **SQLite**
+- **OpenAI API Key** (For chatbot features)
+- **Google Cloud Console Credentials** (For OAuth login)
 
 ---
 
@@ -97,8 +106,10 @@ cd backend
 python -m venv venv
 
 # 2. Activate the virtual environment
-source venv/bin/activate          # macOS / Linux
-.\venv\Scripts\Activate.ps1       # Windows
+# On Windows:
+.\venv\Scripts\Activate.ps1
+# On macOS/Linux:
+source venv/bin/activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -107,15 +118,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
-
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/smarthealth
-SECRET_KEY=your-secure-secret-key
-OPENAI_API_KEY=your-openai-api-key
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-```
+> **Note:** Edit `.env` with your specific credentials (see [Environment Variables](#-environment-variables) below).
 
 ```bash
 # 5. Run database migrations
@@ -125,7 +128,7 @@ alembic upgrade head
 uvicorn main:app --reload
 ```
 
-> 📖 API docs available at `http://localhost:8000/docs`
+📖 **API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI)
 
 ---
 
@@ -138,49 +141,63 @@ cd frontend
 # 2. Install dependencies
 npm install
 
-# 3. Start the dev server
+# 3. Start the development server
 npm run dev
 ```
 
-> 🌐 App available at `http://localhost:5173`
+🌐 **Web Application:** [http://localhost:5173](http://localhost:5173)
+
+---
+
+## 🔑 Environment Variables
+
+The application requires several environment variables to function correctly. Create a `.env` file in the `backend/` directory:
+
+| Variable | Description | Example |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/db` |
+| `SECRET_KEY` | JWT signing key | `openssl rand -hex 32` |
+| `OPENAI_API_KEY` | Your OpenAI API key | `sk-...` |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | `...apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET`| Google OAuth Secret | `GOCSPX-...` |
+| `SMTP_USER` | Email for sending OTPs | `your-email@gmail.com` |
+| `SMTP_PASSWORD` | Email App Password | `xxxx xxxx xxxx xxxx` |
 
 ---
 
 ## 🐳 Docker Deployment
 
-Run the entire stack — frontend, backend, and database — with a single command:
+The easiest way to run the full stack (Frontend, Backend, and PostgreSQL) is via Docker Compose:
 
 ```bash
 docker-compose up --build
 ```
 
-| Service | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8000 |
-| Swagger Docs | http://localhost:8000/docs |
+- **Frontend:** [http://localhost:5173](http://localhost:5173)
+- **Backend API:** [http://localhost:8000](http://localhost:8000)
 
 ---
 
 ## 🧪 Testing
 
+We use `pytest` for backend verification.
+
 ```bash
 cd backend
-
-# Make sure your virtual environment is active
+# Ensure venv is active
 pytest
 ```
 
-Tests are located in `backend/app/health/tests/`.
+Tests cover BMI calculations, Chatbot logic, Auth services, and User management.
 
 ---
 
 ## 💙 Inspiration
 
-SmartHealth's tone and interface are inspired by **Baymax** — friendly, approachable, and genuinely caring. The goal is to feel less like a clinical tool and more like a supportive companion on your wellness journey.
+SmartHealth is designed to be **approachable** and **supportive**. Inspired by **Baymax**, we prioritize a soft color palette, friendly micro-interactions, and clear, empathetic AI communication. Our goal is to make health tracking feel like a conversation with a friend rather than a chore.
 
 ---
 
 <div align="center">
-  Made with ❤️ and a healthy dose of 🤖
+  Built with ❤️ for a healthier world.
 </div>
