@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 import BaymaxLogo from './BaymaxLogo';
 import { useAuth } from '../auth/context/AuthContext';
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 const navItems = [
   { label: 'Bảng điều khiển', to: '/dashboard' },
@@ -15,6 +15,73 @@ const Header = () => {
   const { isAuthenticated, user, logout, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const btnRef = useRef(null);
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  // Listen for incoming messages/notifications and update the badge count
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotificationCount(0);
+      return;
+    }
+
+    // Initialize notification count from localStorage
+    const initializeCount = () => {
+      const notifKey = `notifications_count_${user?.id || 'guest'}`;
+      const stored = localStorage.getItem(notifKey);
+      if (stored) {
+        setNotificationCount(parseInt(stored, 10));
+      }
+    };
+
+    initializeCount();
+
+    // Listen for storage changes (simulating incoming messages from other tabs/windows)
+    const handleStorageChange = (e) => {
+      const notifKey = `notifications_count_${user?.id || 'guest'}`;
+      if (e.key === notifKey && e.newValue) {
+        setNotificationCount(parseInt(e.newValue, 10));
+      }
+    };
+
+    // Listen for custom events dispatched by ChatPage or other components when new messages arrive
+    const handleNewNotification = (e) => {
+      setNotificationCount(prev => prev + (e.detail?.count || 1));
+      // Also persist to localStorage
+      const notifKey = `notifications_count_${user?.id || 'guest'}`;
+      const newCount = notificationCount + (e.detail?.count || 1);
+      localStorage.setItem(notifKey, String(newCount));
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('notification:new', handleNewNotification);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('notification:new', handleNewNotification);
+    };
+  }, [isAuthenticated, user?.id]);
+
+  // Function to manually increment notification count (can be called from ChatPage or ChatArea)
+  const addNotification = (count = 1) => {
+    setNotificationCount(prev => {
+      const newCount = prev + count;
+      const notifKey = `notifications_count_${user?.id || 'guest'}`;
+      localStorage.setItem(notifKey, String(newCount));
+      return newCount;
+    });
+  };
+
+  // Function to clear notifications when user visits dashboard
+  const clearNotifications = () => {
+    setNotificationCount(0);
+    const notifKey = `notifications_count_${user?.id || 'guest'}`;
+    localStorage.removeItem(notifKey);
+  };
+
+  // Handle dashboard navigation - clear notifications
+  const handleDashboardClick = () => {
+    clearNotifications();
+  };
 
   const spawnParticles = () => {
     const wrap = btnRef.current?.parentElement;
@@ -196,13 +263,29 @@ const Header = () => {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  onClick={addRipple}
+                  onClick={(e) => {
+                    addRipple(e);
+                    if (item.label === 'Bảng điều khiển') {
+                      handleDashboardClick();
+                    }
+                  }}
                   className={({ isActive }) =>
                     `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer
                     ${isActive ? 'nav-pill-active' : 'text-slate-500 hover:text-red-500 hover:scale-105'}`
                   }
                 >
-                  {item.label}
+                  {item.label === 'Bảng điều khiển' ? (
+                    <span className="relative inline-block">
+                      {item.label}
+                      {notificationCount > 0 && (
+                        <span className="absolute -top-2 -right-3 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white animate-pulse">
+                          {notificationCount > 99 ? '99+' : notificationCount}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    item.label
+                  )}
                 </NavLink>
               ))}
               {/* Admin link */}

@@ -58,14 +58,7 @@ const AppContent = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <AdminDashboard />
-                </AdminRoute>
-              }
-            />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/access-denied" element={<AccessDenied />} />
           </Routes>
       <CSKHChatWidget />

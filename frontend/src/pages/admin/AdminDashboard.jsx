@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Users, MessageSquare, BarChart3, Settings, ChevronRight, Home, Send } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, Settings, ChevronRight, Home, Send, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import ChatBubble from '../../components/chatbot/ChatBubble';
@@ -36,6 +36,7 @@ const AdminDashboard = () => {
 
   const sidebarItems = [
     { id: 'cskh', label: 'Chăm sóc khách hàng', icon: <Users /> },
+    { id: 'documents', label: 'Quản lý tài liệu', icon: <FileText /> },
     { id: 'stats', label: 'Thống kê', icon: <BarChart3 /> },
     { id: 'settings', label: 'Cài đặt', icon: <Settings /> },
   ];
@@ -230,7 +231,7 @@ const AdminDashboard = () => {
   ));
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="w-screen h-screen overflow-hidden flex bg-gray-100">
       {/* Sidebar */}
       <aside className="w-64 bg-white shadow-lg border-r border-gray-200">
         <div className="p-6 border-b border-gray-100">
@@ -400,7 +401,7 @@ const AdminDashboard = () => {
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                    <div className="flex-1 overflow-y-auto scrollbar-none p-6 space-y-4 bg-gray-50">
                       {messages.length === 0 ? (
                         <div className="text-center text-gray-500">Chưa có tin nhắn nào</div>
                       ) : (
