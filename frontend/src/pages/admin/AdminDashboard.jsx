@@ -1,33 +1,52 @@
-
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Users, MessageSquare, BarChart3, Settings, ChevronRight, Home, Send, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import api from '../../services/api';
-import ChatBubble from '../../components/chatbot/ChatBubble';
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Users,
+  MessageSquare,
+  BarChart3,
+  Settings,
+  ChevronRight,
+  Home,
+  Send,
+  FileText,
+  Trash2,
+  RotateCcw,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import api from "../../services/api";
+import ChatBubble from "../../components/chatbot/ChatBubble";
+import Modal from "../../components/common/Modal";
 
 const getSupportWsUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-  return `${apiUrl.replace(/^http/, 'ws')}/support/ws`;
+  const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  return `${apiUrl.replace(/^http/, "ws")}/support/ws`;
 };
 
 const statusLabels = {
-  all: 'Tất cả',
-  open: 'Mới',
-  in_progress: 'Đang xử lý',
-  closed: 'Xong',
+  all: "Tất cả",
+  open: "Mới",
+  in_progress: "Đang xử lý",
+  closed: "Xong",
 };
 
-const isNotificationSupported = () => typeof window !== 'undefined' && 'Notification' in window;
+const isNotificationSupported = () =>
+  typeof window !== "undefined" && "Notification" in window;
 
 const AdminDashboard = () => {
-  const [activeItem, setActiveItem] = useState('cskh');
+  const [activeItem, setActiveItem] = useState("cskh");
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [hasNewTicketNotification, setHasNewTicketNotification] = useState(false);
-  const [ticketFilter, setTicketFilter] = useState('all');
+  const [hasNewTicketNotification, setHasNewTicketNotification] =
+    useState(false);
+  const [ticketFilter, setTicketFilter] = useState("all");
+  const [documents, setDocuments] = useState([]);
+  const [documentLoading, setDocumentLoading] = useState(true);
+  const [documentFilter, setDocumentFilter] = useState("all");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
   const messagesEndRef = useRef(null);
   const selectedTicketRef = useRef(null);
   const lastNotifiedTicketIdRef = useRef(null);
@@ -35,19 +54,20 @@ const AdminDashboard = () => {
   const previousTicketsCountRef = useRef(0);
 
   const sidebarItems = [
-    { id: 'cskh', label: 'Chăm sóc khách hàng', icon: <Users /> },
-    { id: 'documents', label: 'Quản lý tài liệu', icon: <FileText /> },
-    { id: 'stats', label: 'Thống kê', icon: <BarChart3 /> },
-    { id: 'settings', label: 'Cài đặt', icon: <Settings /> },
+    { id: "cskh", label: "Chăm sóc khách hàng", icon: <Users /> },
+    { id: "documents", label: "Quản lý tài liệu", icon: <FileText /> },
+    { id: "stats", label: "Thống kê", icon: <BarChart3 /> },
+    { id: "settings", label: "Cài đặt", icon: <Settings /> },
   ];
 
   // Scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const showAdminNotification = useCallback((title, body) => {
-    if (!isNotificationSupported() || Notification.permission !== 'granted') return;
+    if (!isNotificationSupported() || Notification.permission !== "granted")
+      return;
 
     if (window.adminNotification) {
       window.adminNotification.close();
@@ -55,7 +75,7 @@ const AdminDashboard = () => {
 
     window.adminNotification = new Notification(title, {
       body,
-      icon: 'https://cdn-icons-png.flaticon.com/512/633/633611.png'
+      icon: "https://cdn-icons-png.flaticon.com/512/633/633611.png",
     });
 
     setTimeout(() => {
@@ -68,80 +88,144 @@ const AdminDashboard = () => {
   const loadTickets = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/support/admin/tickets');
+      const response = await api.get("/support/admin/tickets");
       const newTickets = response.data;
-      
-      if (newTickets.length > previousTicketsCountRef.current && previousTicketsCountRef.current > 0) {
+
+      if (
+        newTickets.length > previousTicketsCountRef.current &&
+        previousTicketsCountRef.current > 0
+      ) {
         const latestTicket = newTickets[0];
-        
+
         if (latestTicket.id !== lastNotifiedTicketIdRef.current) {
           setHasNewTicketNotification(true);
           lastNotifiedTicketIdRef.current = latestTicket.id;
-          showAdminNotification('Ticket mới từ khách hàng', `Có ticket mới: ${latestTicket.subject}`);
+          showAdminNotification(
+            "Ticket mới từ khách hàng",
+            `Có ticket mới: ${latestTicket.subject}`,
+          );
         }
       }
-      
+
       setTickets(newTickets);
       previousTicketsCountRef.current = newTickets.length;
     } catch (error) {
-      console.error('Failed to load tickets:', error);
+      console.error("Failed to load tickets:", error);
     } finally {
       setLoading(false);
     }
   }, [showAdminNotification]);
 
-  const loadTicketDetail = useCallback(async (ticketId) => {
+  const loadDocuments = useCallback(async () => {
     try {
-      const response = await api.get(`/support/admin/tickets/${ticketId}`);
-      const newTicket = response.data;
-        
+      setDocumentLoading(true);
+      const response = await api.get("/health/documents/admin");
+      setDocuments(response.data);
+    } catch (error) {
+      console.error("Failed to load documents:", error);
+      toast.error("Không thể tải danh sách tài liệu.");
+    } finally {
+      setDocumentLoading(false);
+    }
+  }, []);
+
+  const handleDeleteDocument = useCallback(async () => {
+    if (!documentToDelete) return;
+    try {
+      await api.delete(`/health/documents/${documentToDelete.id}`);
+      toast.success(`Tài liệu "${documentToDelete.filename}" đã được xóa mềm.`);
+      loadDocuments();
+      setShowDeleteModal(false);
+      setDocumentToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+      toast.error("Không thể xóa tài liệu.");
+    }
+  }, [documentToDelete, loadDocuments]);
+
+  const handleRestoreDocument = useCallback(
+    async (documentId) => {
+      try {
+        await api.post(`/health/documents/${documentId}/restore`);
+        toast.success("Tài liệu đã được khôi phục.");
+        loadDocuments();
+      } catch (error) {
+        console.error("Failed to restore document:", error);
+        toast.error("Không thể khôi phục tài liệu.");
+      }
+    },
+    [loadDocuments],
+  );
+
+  const loadTicketDetail = useCallback(
+    async (ticketId) => {
+      try {
+        const response = await api.get(`/support/admin/tickets/${ticketId}`);
+        const newTicket = response.data;
+
         // Check if there are new user messages
-        if (selectedTicketRef.current?.id === ticketId && newTicket.messages.length > 0) {
-          const latestMessage = newTicket.messages[newTicket.messages.length - 1];
-          
-          if (latestMessage.sender_id === newTicket.user_id && latestMessage.id !== lastNotifiedMessageIdRef.current) {
+        if (
+          selectedTicketRef.current?.id === ticketId &&
+          newTicket.messages.length > 0
+        ) {
+          const latestMessage =
+            newTicket.messages[newTicket.messages.length - 1];
+
+          if (
+            latestMessage.sender_id === newTicket.user_id &&
+            latestMessage.id !== lastNotifiedMessageIdRef.current
+          ) {
             lastNotifiedMessageIdRef.current = latestMessage.id;
-            showAdminNotification(`Tin nhắn mới từ ${newTicket.user?.full_name || 'Khách hàng'}`, latestMessage.content);
+            showAdminNotification(
+              `Tin nhắn mới từ ${newTicket.user?.full_name || "Khách hàng"}`,
+              latestMessage.content,
+            );
           }
         }
-        
+
         // Format messages for ChatBubble
-        const formattedMessages = newTicket.messages.map(msg => {
-          let from = 'admin';
+        const formattedMessages = newTicket.messages.map((msg) => {
+          let from = "admin";
           if (msg.sender_id === newTicket.user_id) {
-            from = 'user';
-          } else if (msg.sender && msg.sender.role === 'user') {
-            from = 'user';
+            from = "user";
+          } else if (msg.sender && msg.sender.role === "user") {
+            from = "user";
           }
           return {
             id: msg.id,
             from: from,
             text: msg.content,
-            createdAt: msg.created_at
+            createdAt: msg.created_at,
           };
         });
-        
+
         setSelectedTicket(newTicket);
         setMessages(formattedMessages || []);
-    } catch (error) {
-      console.error('Failed to load ticket detail:', error);
-    }
-  }, [showAdminNotification]);
+      } catch (error) {
+        console.error("Failed to load ticket detail:", error);
+      }
+    },
+    [showAdminNotification],
+  );
 
   useEffect(() => {
-    if (activeItem === 'cskh') {
+    if (activeItem === "cskh") {
       queueMicrotask(loadTickets);
+    } else if (activeItem === "documents") {
+      queueMicrotask(loadDocuments);
     }
-  }, [activeItem, loadTickets]);
+  }, [activeItem, loadTickets, loadDocuments]);
 
   useEffect(() => {
     selectedTicketRef.current = selectedTicket;
   }, [selectedTicket]);
 
   useEffect(() => {
-    if (activeItem !== 'cskh') return;
+    if (activeItem !== "cskh") return;
 
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token =
+      localStorage.getItem("access_token") ||
+      sessionStorage.getItem("access_token");
     if (!token) return;
 
     let socket;
@@ -149,11 +233,19 @@ const AdminDashboard = () => {
     let shouldReconnect = true;
 
     const connect = () => {
-      socket = new WebSocket(`${getSupportWsUrl()}?token=${encodeURIComponent(token)}`);
+      socket = new WebSocket(
+        `${getSupportWsUrl()}?token=${encodeURIComponent(token)}`,
+      );
 
       socket.onmessage = (event) => {
         const payload = JSON.parse(event.data);
-        if (!['ticket_created', 'message_created', 'ticket_status_updated'].includes(payload.type)) {
+        if (
+          ![
+            "ticket_created",
+            "message_created",
+            "ticket_status_updated",
+          ].includes(payload.type)
+        ) {
           return;
         }
 
@@ -164,7 +256,7 @@ const AdminDashboard = () => {
       };
 
       socket.onerror = (error) => {
-        console.error('Support websocket error:', error);
+        console.error("Support websocket error:", error);
       };
 
       socket.onclose = () => {
@@ -185,9 +277,16 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (!isNotificationSupported()) return;
-    if (Notification.permission === 'default') {
+    if (Notification.permission === "default") {
       Notification.requestPermission();
     }
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "auto";
+    };
   }, []);
 
   const sendMessage = async (e) => {
@@ -195,21 +294,24 @@ const AdminDashboard = () => {
     if (!newMessage.trim() || !selectedTicket) return;
 
     try {
-      const response = await api.post(`/support/admin/tickets/${selectedTicket.id}/messages`, {
-        content: newMessage
-      });
+      const response = await api.post(
+        `/support/admin/tickets/${selectedTicket.id}/messages`,
+        {
+          content: newMessage,
+        },
+      );
       // Format the new message properly for ChatBubble
       const formattedNewMessage = {
         id: response.data.id,
-        from: 'admin',
+        from: "admin",
         text: response.data.content,
-        createdAt: response.data.created_at
+        createdAt: response.data.created_at,
       };
-      setMessages(prev => [...prev, formattedNewMessage]);
-      setNewMessage('');
+      setMessages((prev) => [...prev, formattedNewMessage]);
+      setNewMessage("");
       loadTickets();
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
     }
   };
 
@@ -218,59 +320,72 @@ const AdminDashboard = () => {
       await api.patch(`/support/admin/tickets/${ticketId}/status`, { status });
       loadTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket(prev => ({ ...prev, status }));
+        setSelectedTicket((prev) => ({ ...prev, status }));
       }
     } catch (error) {
-      console.error('Failed to update status:', error);
+      console.error("Failed to update status:", error);
     }
   };
 
-  const activeTicketsCount = tickets.filter((ticket) => ticket.status !== 'closed').length;
-  const filteredTickets = tickets.filter((ticket) => (
-    ticketFilter === 'all' ? ticket.status !== 'closed' : ticket.status === ticketFilter
-  ));
+  const activeTicketsCount = tickets.filter(
+    (ticket) => ticket.status !== "closed",
+  ).length;
+  const filteredTickets = tickets.filter((ticket) =>
+    ticketFilter === "all"
+      ? ticket.status !== "closed"
+      : ticket.status === ticketFilter,
+  );
+  const filteredDocuments = documents.filter((doc) => {
+    if (documentFilter === "active") return !doc.is_deleted;
+    if (documentFilter === "deleted") return doc.is_deleted;
+    return true;
+  });
+  const activeDocumentCount = documents.filter((doc) => !doc.is_deleted).length;
+  const deletedDocumentCount = documents.filter((doc) => doc.is_deleted).length;
 
   return (
-    <div className="w-screen h-screen overflow-hidden flex bg-gray-100">
+    <div className="w-full h-[calc(100dvh-69px)] overflow-hidden flex bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-lg border-r border-gray-200">
-        <div className="p-6 border-b border-gray-100">
+      <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
+        <div className="p-6 border-b border-gray-100 flex-shrink-0">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">S</span>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">SmartHealth</p>
+              <p className="text-sm font-semibold text-slate-900">
+                SmartHealth
+              </p>
               <p className="text-xs text-red-500">Admin Panel</p>
             </div>
           </Link>
         </div>
-        <nav className="mt-6 space-y-2 px-4">
+        <nav className="mt-6 space-y-2 px-4 flex-1 overflow-y-auto">
           {sidebarItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveItem(item.id);
-                        if (item.id === 'cskh') {
-                          setHasNewTicketNotification(false);
-                        }
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        activeItem === item.id
-                          ? 'bg-red-50 text-red-600 border border-red-200'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                    >
-                      {item.icon}
-                      <span className="flex-1">{item.label}</span>
-                      {item.id === 'cskh' && hasNewTicketNotification && (
-                        <span className="flex h-3 w-3 rounded-full bg-red-500"></span>
-                      )}
-                      {activeItem === item.id && <ChevronRight className="w-4 h-4" />}
-                    </button>
-                  ))}
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveItem(item.id);
+                if (item.id === "cskh") {
+                  setHasNewTicketNotification(false);
+                }
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                activeItem === item.id
+                  ? "bg-red-50 text-red-600 border border-red-200"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              {item.icon}
+              <span className="flex-1">{item.label}</span>
+              {item.id === "cskh" && hasNewTicketNotification && (
+                <span className="flex h-3 w-3 rounded-full bg-red-500"></span>
+              )}
+              {activeItem === item.id && <ChevronRight className="w-4 h-4" />}
+            </button>
+          ))}
         </nav>
-        <div className="absolute bottom-6 left-4 right-4">
+        <div className="p-4 border-t border-gray-100 flex-shrink-0">
           <Link
             to="/dashboard"
             className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg text-sm font-medium transition-all"
@@ -282,43 +397,188 @@ const AdminDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl h-[calc(100vh-4rem)]">
-          <header className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900">Trang quản trị</h1>
+      <main className="flex-1 min-w-0 overflow-hidden flex flex-col">
+        <div className="w-full h-full mx-auto flex flex-col p-4 md:p-6 overflow-hidden min-h-0">
+          <header className="mb-4 flex-shrink-0">
+            <h1 className="text-2xl font-bold text-slate-900">
+              Trang quản trị
+            </h1>
             <p className="text-gray-600">
-              {activeItem === 'cskh' 
-                ? 'Quản lý và chăm sóc khách hàng'
-                : activeItem === 'stats' 
-                ? 'Thống kê doanh nghiệp'
-                : 'Cài đặt hệ thống'}
+              {activeItem === "cskh"
+                ? "Quản lý và chăm sóc khách hàng"
+                : activeItem === "documents"
+                  ? "Quản lý tài liệu RAG"
+                  : activeItem === "stats"
+                    ? "Thống kê doanh nghiệp"
+                    : "Cài đặt hệ thống"}
             </p>
           </header>
 
-          {activeItem === 'cskh' && (
-            <div className="grid grid-cols-12 gap-6 h-[calc(100%-6rem)]">
+          {activeItem === "documents" && (
+            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full min-h-0">
+              <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                      <FileText className="text-purple-600" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        Danh sách tài liệu
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {activeDocumentCount} hoạt động · {deletedDocumentCount}{" "}
+                        đã xóa
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: "all", label: "Tất cả" },
+                      { id: "active", label: "Hoạt động" },
+                      { id: "deleted", label: "Đã xóa" },
+                    ].map((filter) => (
+                      <button
+                        key={filter.id}
+                        type="button"
+                        onClick={() => setDocumentFilter(filter.id)}
+                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                          documentFilter === filter.id
+                            ? "border-purple-500 bg-purple-50 text-purple-700"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {documentLoading ? (
+                  <div className="p-6 text-center text-gray-500">
+                    Đang tải tài liệu...
+                  </div>
+                ) : filteredDocuments.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">
+                    {documents.length === 0
+                      ? "Không có tài liệu nào."
+                      : "Không có tài liệu phù hợp với bộ lọc."}
+                  </div>
+                ) : (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Tên tài liệu
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Trạng thái
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Ngày tải lên
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Hành động
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredDocuments.map((doc) => (
+                        <tr
+                          key={doc.id}
+                          className={
+                            doc.is_deleted ? "bg-red-50 opacity-70" : ""
+                          }
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {doc.filename}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {doc.is_deleted ? (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Đã xóa
+                              </span>
+                            ) : (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Hoạt động
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(doc.created_at).toLocaleString("vi-VN")}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {doc.is_deleted ? (
+                              <button
+                                onClick={() => handleRestoreDocument(doc.id)}
+                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                title="Khôi phục tài liệu"
+                              >
+                                <RotateCcw size={18} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setDocumentToDelete(doc);
+                                  setShowDeleteModal(true);
+                                }}
+                                className="text-red-600 hover:text-red-900 mr-3"
+                                title="Xóa tài liệu"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeItem === "cskh" && (
+            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0 h-full">
               {/* Tickets List */}
               <div className="col-span-4 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                <div className="p-6 border-b border-gray-100">
+                <div className="p-6 border-b border-gray-100 flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
                       <MessageSquare className="text-blue-600" size={20} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">Danh sách yêu cầu</h3>
-                      <p className="text-sm text-gray-500">{activeTicketsCount} ticket hiện tại</p>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        Danh sách yêu cầu
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {activeTicketsCount} ticket hiện tại
+                      </p>
                     </div>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    {['all', 'open', 'in_progress', 'closed'].map((filter) => (
+                    {["all", "open", "in_progress", "closed"].map((filter) => (
                       <button
                         key={filter}
                         type="button"
                         onClick={() => setTicketFilter(filter)}
                         className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
                           ticketFilter === filter
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
                         }`}
                       >
                         {statusLabels[filter]}
@@ -326,49 +586,66 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto">
                   {loading ? (
-                    <div className="p-6 text-center text-gray-500">Đang tải...</div>
+                    <div className="p-6 text-center text-gray-500">
+                      Đang tải...
+                    </div>
                   ) : filteredTickets.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500">Không có ticket phù hợp</div>
+                    <div className="p-6 text-center text-gray-500">
+                      Không có ticket phù hợp
+                    </div>
                   ) : (
                     filteredTickets.map((ticket) => (
-                          <div
-                            key={ticket.id}
-                            onClick={() => {
-                              loadTicketDetail(ticket.id);
-                              setHasNewTicketNotification(false);
-                            }}
-                            className={`p-4 border-b border-gray-100 cursor-pointer transition-all hover:bg-gray-50 ${
-                              selectedTicket?.id === ticket.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      <div
+                        key={ticket.id}
+                        onClick={() => {
+                          loadTicketDetail(ticket.id);
+                          setHasNewTicketNotification(false);
+                        }}
+                        className={`p-4 border-b border-gray-100 cursor-pointer transition-all hover:bg-gray-50 ${
+                          selectedTicket?.id === ticket.id
+                            ? "bg-blue-50 border-l-4 border-blue-500"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-slate-900 truncate">
+                              {ticket.subject}
+                            </h4>
+                            {/* New message indicator */}
+                            {selectedTicket?.id !== ticket.id &&
+                              ticket.messages &&
+                              ticket.messages.length > 0 &&
+                              (selectedTicket?.messages?.length || 0) <
+                                ticket.messages.length && (
+                                <span className="flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                              )}
+                          </div>
+                          <span
+                            className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                              ticket.status === "open"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : ticket.status === "in_progress"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-green-100 text-green-800"
                             }`}
                           >
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-slate-900 truncate">{ticket.subject}</h4>
-                                {/* New message indicator */}
-                                {selectedTicket?.id !== ticket.id && 
-                                 ticket.messages && 
-                                 ticket.messages.length > 0 && 
-                                 (selectedTicket?.messages?.length || 0) < ticket.messages.length && (
-                                  <span className="flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
-                                )}
-                              </div>
-                              <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                                ticket.status === 'open' ? 'bg-yellow-100 text-yellow-800' :
-                                ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                                'bg-green-100 text-green-800'
-                              }`}>
-                                {ticket.status === 'open' ? 'Mới' :
-                                 ticket.status === 'in_progress' ? 'Đang xử lý' : 'Xong'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500">
-                              {ticket.user?.full_name || 'Khách'} • {new Date(ticket.updated_at).toLocaleString('vi-VN')}
-                            </p>
-                          </div>
-                        ))
+                            {ticket.status === "open"
+                              ? "Mới"
+                              : ticket.status === "in_progress"
+                                ? "Đang xử lý"
+                                : "Xong"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {ticket.user?.full_name || "Khách"} •{" "}
+                          {new Date(ticket.updated_at).toLocaleString("vi-VN")}
+                        </p>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
@@ -382,16 +659,21 @@ const AdminDashboard = () => {
                 ) : (
                   <>
                     {/* Chat Header */}
-                    <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                    <div className="p-6 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-900">{selectedTicket.subject}</h3>
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          {selectedTicket.subject}
+                        </h3>
                         <p className="text-sm text-gray-500">
-                          Khách hàng: {selectedTicket.user?.full_name || 'Khách'}
+                          Khách hàng:{" "}
+                          {selectedTicket.user?.full_name || "Khách"}
                         </p>
                       </div>
                       <select
                         value={selectedTicket.status}
-                        onChange={(e) => updateStatus(selectedTicket.id, e.target.value)}
+                        onChange={(e) =>
+                          updateStatus(selectedTicket.id, e.target.value)
+                        }
                         className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="open">Mới</option>
@@ -403,12 +685,15 @@ const AdminDashboard = () => {
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto scrollbar-none p-6 space-y-4 bg-gray-50">
                       {messages.length === 0 ? (
-                        <div className="text-center text-gray-500">Chưa có tin nhắn nào</div>
+                        <div className="text-center text-gray-500">
+                          Chưa có tin nhắn nào
+                        </div>
                       ) : (
                         messages.map((msg) => (
                           <ChatBubble
                             key={msg.id}
                             message={msg}
+                            isAdminView={true}
                           />
                         ))
                       )}
@@ -416,7 +701,10 @@ const AdminDashboard = () => {
                     </div>
 
                     {/* Input Area */}
-                    <form onSubmit={sendMessage} className="p-6 border-t border-gray-100">
+                    <form
+                      onSubmit={sendMessage}
+                      className="p-6 border-t border-gray-100 flex-shrink-0"
+                    >
                       <div className="flex gap-3">
                         <input
                           type="text"
@@ -440,45 +728,94 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {activeItem === 'stats' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Thống kê người dùng</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Tổng người dùng</span>
-                    <span className="text-xl font-bold text-slate-900">156</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Người dùng mới hôm nay</span>
-                    <span className="text-xl font-bold text-green-600">+12</span>
+          {activeItem === "stats" && (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pb-4">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    Thống kê người dùng
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Tổng người dùng</span>
+                      <span className="text-xl font-bold text-slate-900">
+                        156
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">
+                        Người dùng mới hôm nay
+                      </span>
+                      <span className="text-xl font-bold text-green-600">
+                        +12
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Tỷ lệ tính toán</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Số lần tính BMI</span>
-                    <span className="text-xl font-bold text-slate-900">523</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Số lần tính Calories</span>
-                    <span className="text-xl font-bold text-green-600">389</span>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    Tỷ lệ tính toán
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Số lần tính BMI</span>
+                      <span className="text-xl font-bold text-slate-900">
+                        523
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">
+                        Số lần tính Calories
+                      </span>
+                      <span className="text-xl font-bold text-green-600">
+                        389
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {activeItem === 'settings' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h3 className="text-lg font-semibold text-slate-900 mb-6">Cài đặt hệ thống</h3>
-              <p className="text-gray-500">Phần cài đặt sẽ được cập nhật sau.</p>
+          {activeItem === "settings" && (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-slate-900 mb-6">
+                  Cài đặt hệ thống
+                </h3>
+                <p className="text-gray-500">
+                  Phần cài đặt sẽ được cập nhật sau.
+                </p>
+              </div>
             </div>
           )}
         </div>
       </main>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Xác nhận xóa tài liệu"
+      >
+        <p className="text-gray-700 mb-4">
+          Bạn có chắc chắn muốn xóa tài liệu "{documentToDelete?.filename}"?
+          Thao tác này sẽ xóa mềm tài liệu và tất cả các chunk liên quan.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setShowDeleteModal(false)}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleDeleteDocument}
+            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          >
+            Xóa
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

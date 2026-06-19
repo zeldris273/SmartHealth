@@ -28,12 +28,9 @@ def get_my_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Cập nhật thời gian last_online_at mỗi khi người dùng lấy thông tin cá nhân
-    print(f"Updating last_online_at for user: {current_user.email}, old: {current_user.last_online_at}")
     current_user.last_online_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(current_user)
-    print(f"Updated last_online_at: {current_user.last_online_at}")
     return current_user
 
 

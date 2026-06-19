@@ -20,7 +20,7 @@ from app.health.schemas.chat import (
     ChatSessionUpdateRequest,
 )
 from app.health.services.chat_service import ask_ai
-from app.health.services.rag_service import format_retrieved_context, search_relevant_chunks
+from app.health.services.rag_service import RetrievedChunk, format_retrieved_context, search_relevant_chunks
 from database import get_db
 
 
@@ -201,6 +201,17 @@ def ensure_chat_session(
     return session
 
 
+def build_rag_sources(chunks: list[RetrievedChunk]) -> list[str]:
+    seen_document_ids: set[int] = set()
+    sources: list[str] = []
+    for chunk in chunks:
+        if chunk.document_id in seen_document_ids:
+            continue
+        seen_document_ids.add(chunk.document_id)
+        sources.append(chunk.filename)
+    return sources
+
+
 def save_chat_pair(
     db: Session,
     user_id: int,
@@ -209,6 +220,7 @@ def save_chat_pair(
     assistant_reply: str,
     provider: str,
     model_name: str,
+    sources: list[str] | None = None,
 ) -> None:
     ensure_chat_session(db, user_id, session_id, user_message)
     db.add(
@@ -229,6 +241,7 @@ def save_chat_pair(
             content=assistant_reply,
             provider=provider,
             model_name=model_name,
+            sources=sources or None,
         )
     )
     db.commit()
@@ -319,7 +332,7 @@ def chat_with_ai(
     if current_user and request.use_rag:
         chunks = search_relevant_chunks(db, current_user.id, request.message)
         retrieved_context = format_retrieved_context(chunks)
-        sources = [f"{chunk.filename}#chunk-{chunk.chunk_index + 1}" for chunk in chunks]
+        sources = build_rag_sources(chunks)
 
     health_context = build_health_context(current_user, latest_bmi, bmi_history)
 
@@ -340,6 +353,7 @@ def chat_with_ai(
             assistant_reply=result.reply,
             provider=result.provider,
             model_name=result.model,
+            sources=sources,
         )
         saved = True
 
