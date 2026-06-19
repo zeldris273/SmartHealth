@@ -1,13 +1,13 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { User, LogOut } from 'lucide-react';
-import BaymaxLogo from './BaymaxLogo';
-import { useAuth } from '../auth/context/AuthContext';
-import { useRef, useState, useEffect } from 'react';
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { User, LogOut } from "lucide-react";
+import BaymaxLogo from "./BaymaxLogo";
+import { useAuth } from "../auth/context/AuthContext";
+import { useRef, useState, useEffect } from "react";
 
 const navItems = [
-  { label: 'Bảng điều khiển', to: '/dashboard' },
-  { label: 'Chatbot', to: '/chat' },
-  { label: 'Trang cá nhân', to: '/profile' },
+  { label: "Bảng điều khiển", to: "/dashboard" },
+  { label: "Chatbot", to: "/chat" },
+  { label: "Trang cá nhân", to: "/profile" },
 ];
 
 const Header = () => {
@@ -22,7 +22,7 @@ const Header = () => {
       return;
     }
 
-    const notifKey = `notifications_count_${user?.id || 'guest'}`;
+    const notifKey = `notifications_count_${user?.id || "guest"}`;
 
     const stored = localStorage.getItem(notifKey);
     if (stored) {
@@ -43,18 +43,18 @@ const Header = () => {
       });
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('notification:new', handleNewNotification);
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("notification:new", handleNewNotification);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('notification:new', handleNewNotification);
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("notification:new", handleNewNotification);
     };
   }, [isAuthenticated, user?.id]);
 
   const clearNotifications = () => {
     setNotificationCount(0);
-    const notifKey = `notifications_count_${user?.id || 'guest'}`;
+    const notifKey = `notifications_count_${user?.id || "guest"}`;
     localStorage.removeItem(notifKey);
   };
 
@@ -68,7 +68,7 @@ const Header = () => {
     if (!wrap || !btn) return;
 
     for (let i = 0; i < 6; i++) {
-      const p = document.createElement('div');
+      const p = document.createElement("div");
       const x = Math.random() * btn.offsetWidth;
 
       p.style.cssText = `
@@ -93,21 +93,21 @@ const Header = () => {
     const btn = btnRef.current;
     if (!btn) return;
 
-    btn.style.transform = 'scale(0.92)';
-    setTimeout(() => (btn.style.transform = ''), 150);
+    btn.style.transform = "scale(0.92)";
+    setTimeout(() => (btn.style.transform = ""), 150);
 
     for (let i = 0; i < 10; i++) {
-      const p = document.createElement('div');
+      const p = document.createElement("div");
       const angle = (i / 10) * 360;
       const dist = 20 + Math.random() * 20;
 
       p.style.cssText =
-        'position:absolute;left:50%;bottom:50%;width:5px;height:5px;border-radius:50%;background:#ef4444;pointer-events:none;z-index:0;';
+        "position:absolute;left:50%;bottom:50%;width:5px;height:5px;border-radius:50%;background:#ef4444;pointer-events:none;z-index:0;";
 
       p.animate(
         [
           {
-            transform: 'translate(-50%,50%) scale(1)',
+            transform: "translate(-50%,50%) scale(1)",
             opacity: 1,
           },
           {
@@ -121,9 +121,9 @@ const Header = () => {
         ],
         {
           duration: 500,
-          easing: 'ease-out',
-          fill: 'forwards',
-        }
+          easing: "ease-out",
+          fill: "forwards",
+        },
       );
 
       btn.appendChild(p);
@@ -136,7 +136,7 @@ const Header = () => {
     const rect = btn.getBoundingClientRect();
     const size = Math.max(rect.width, rect.height);
 
-    const r = document.createElement('span');
+    const r = document.createElement("span");
 
     r.style.cssText = `
       position:absolute;
@@ -295,8 +295,8 @@ const Header = () => {
             <div
               className="flex items-center gap-1 rounded-full border px-1 py-1"
               style={{
-                background: 'rgba(239,68,68,0.05)',
-                borderColor: 'rgba(239,68,68,0.12)',
+                background: "rgba(239,68,68,0.05)",
+                borderColor: "rgba(239,68,68,0.12)",
               }}
             >
               {navItems.map((item) => (
@@ -306,45 +306,42 @@ const Header = () => {
                   onClick={(e) => {
                     addRipple(e);
 
-                    if (item.label === 'Bảng điều khiển') {
+                    if (item.label === "Bảng điều khiển") {
                       handleDashboardClick();
                     }
                   }}
                   className={({ isActive }) =>
                     `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer ${
                       isActive
-                        ? 'nav-pill-active'
-                        : 'text-slate-500 hover:text-red-500 hover:scale-105'
+                        ? "nav-pill-active"
+                        : "text-slate-500 hover:text-red-500 hover:scale-105"
                     }`
                   }
                 >
-                  <span className="relative inline-block">
-                    {item.label}
-
-                    {item.to === '/dashboard' && notificationCount > 0 && (
-                      <span className="absolute -top-2 -right-3 flex h-5 min-w-[20px] px-1 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white animate-pulse">
-                        {notificationCount > 99
-                          ? '99+'
-                          : notificationCount}
-                      </span>
-                    )}
-                  </span>
+                  <span className="relative inline-block">{item.label}</span>
                 </NavLink>
               ))}
 
-              {isAuthenticated && user?.role === 'admin' && (
+              {isAuthenticated && user?.role === "admin" && (
                 <NavLink
                   to="/admin"
                   onClick={addRipple}
                   className={({ isActive }) =>
                     `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer ${
                       isActive
-                        ? 'nav-pill-active'
-                        : 'text-slate-500 hover:text-red-500 hover:scale-105'
+                        ? "nav-pill-active"
+                        : "text-slate-500 hover:text-red-500 hover:scale-105"
                     }`
                   }
                 >
-                  Trang quản trị
+                  <span className="relative inline-block">
+                    Trang quản trị
+                    {notificationCount > 0 && (
+                      <span className="absolute -top-2 -right-3 flex h-5 min-w-[20px] px-1 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white animate-pulse">
+                        {notificationCount > 99 ? "99+" : notificationCount}
+                      </span>
+                    )}
+                  </span>
                 </NavLink>
               )}
             </div>
@@ -353,7 +350,7 @@ const Header = () => {
               <button
                 onClick={() => {
                   logout();
-                  navigate('/', { replace: true });
+                  navigate("/", { replace: true });
                 }}
                 className="flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-100 hover:shadow-md hover:scale-105 active:scale-95"
               >
@@ -362,15 +359,13 @@ const Header = () => {
               </button>
             ) : (
               <div className="btn-wrap-wow relative">
-                <div className="tooltip-wow">
-                  Đăng nhập hoặc đăng ký
-                </div>
+                <div className="tooltip-wow">Đăng nhập hoặc đăng ký</div>
 
                 <button
                   ref={btnRef}
                   onClick={() => {
                     clickEffect();
-                    openAuthModal('login');
+                    openAuthModal("login");
                   }}
                   onMouseEnter={spawnParticles}
                   className="btn-account-wow relative flex items-center gap-2 bg-red-500 text-white rounded-full px-5 py-2 text-sm font-medium overflow-hidden transition-all duration-200 active:scale-95"

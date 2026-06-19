@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.add_column('knowledge_documents', sa.Column('is_deleted', sa.Boolean(), server_default=sa.text('false'), nullable=False))
     op.add_column('knowledge_documents', sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True))
     op.add_column('knowledge_documents', sa.Column('deleted_by', sa.Integer(), nullable=True))
-    op.create_foreign_key('knowledge_documents', 'users', 'knowledge_documents', ['deleted_by'], ['id'])
+    op.create_foreign_key('fk_knowledge_documents_deleted_by_users_id', 'knowledge_documents', 'users', ['deleted_by'], ['id'])
 
     # Add columns to knowledge_chunks
     op.add_column('knowledge_chunks', sa.Column('is_deleted', sa.Boolean(), server_default=sa.text('false'), nullable=False))

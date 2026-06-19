@@ -198,7 +198,14 @@ def search_relevant_chunks(
     query: str,
     limit: int | None = None,
 ) -> list[RetrievedChunk]:
-    has_chunks = db.query(KnowledgeChunk.id).filter(KnowledgeChunk.user_id == user_id).first()
+    has_chunks = (
+        db.query(KnowledgeChunk.id)
+        .filter(
+            KnowledgeChunk.user_id == user_id,
+            KnowledgeChunk.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
     if not has_chunks:
         return []
 

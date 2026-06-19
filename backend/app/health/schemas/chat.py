@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatHistoryItem(BaseModel):
@@ -53,7 +53,13 @@ class ChatMessageResponse(BaseModel):
     content: str
     provider: str | None = None
     model_name: str | None = None
+    sources: list[str] = Field(default_factory=list)
     created_at: datetime
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def normalize_sources(cls, value):
+        return value or []
 
     model_config = {"from_attributes": True}
 
@@ -66,7 +72,13 @@ class ChatConversationMessage(BaseModel):
     id: int
     role: str
     content: str
+    sources: list[str] = Field(default_factory=list)
     created_at: datetime
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def normalize_sources(cls, value):
+        return value or []
 
     model_config = {"from_attributes": True}
 

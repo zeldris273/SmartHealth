@@ -56,6 +56,9 @@ const mapBackendConversation = (conversation) => ({
       id: `db-${message.id}`,
       from: message.role === "user" ? "user" : "bot",
       text: message.content,
+      ...(message.role === "assistant" && message.sources?.length
+        ? { sources: message.sources }
+        : {}),
     })),
   ],
 });
