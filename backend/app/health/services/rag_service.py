@@ -213,7 +213,11 @@ def search_relevant_chunks(
             distance.label("distance"),
         )
         .join(KnowledgeDocument, KnowledgeDocument.id == KnowledgeChunk.document_id)
-        .filter(KnowledgeChunk.user_id == user_id)
+        .filter(
+            KnowledgeChunk.user_id == user_id,
+            KnowledgeChunk.is_deleted == False,  # noqa: E712
+            KnowledgeDocument.is_deleted == False,  # noqa: E712
+        )
         .order_by(distance)
         .limit(top_k)
         .all()

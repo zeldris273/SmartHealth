@@ -1,8 +1,12 @@
-const ChatBubble = ({ message }) => {
+const ChatBubble = ({ message, isAdminView = false }) => {
   const isBot = message.from === "bot";
   const isAdmin = message.from === "admin";
   const isError = message.isError;
+  
+  // In user view: bot/admin are "others" (left), user is "me" (right)
+  // In admin view: admin is "me" (right), user/bot are "others" (left)
   const isFromAssistant = isBot || isAdmin;
+  const onRight = isAdminView ? isAdmin : !isFromAssistant;
 
   // Format timestamp
   const formatTime = (timestamp) => {
@@ -12,11 +16,12 @@ const ChatBubble = ({ message }) => {
   };
 
   return (
-    <div className={`flex ${isFromAssistant ? "justify-start" : "justify-end"}`}>
-      {isFromAssistant && (
+    <div className={`flex ${onRight ? "justify-end" : "justify-start"}`}>
+      {/* Show avatar for "others" */}
+      {!onRight && (
         <div className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-blue-400 bg-blue-100">
           <span className="text-xs font-bold text-blue-500">
-            {isAdmin ? "A" : "B"}
+            {isAdmin ? "A" : isBot ? "B" : "U"}
           </span>
         </div>
       )}
@@ -26,16 +31,18 @@ const ChatBubble = ({ message }) => {
             isError
               ? "rounded-tl-none bg-amber-50 text-amber-900 ring-1 ring-amber-100"
               : isAdmin
-                ? "rounded-tl-none bg-blue-50 text-blue-900"
+                ? `${onRight ? "rounded-tr-none" : "rounded-tl-none"} bg-blue-50 text-blue-900`
                 : isBot
                   ? "rounded-tl-none bg-red-50 text-red-900"
-                  : "rounded-tr-none bg-red-500 text-white"
+                  : onRight 
+                    ? "rounded-tr-none bg-red-500 text-white" 
+                    : "rounded-tl-none bg-gray-200 text-gray-800"
           }`}
         >
           {message.text}
         </div>
         {message.createdAt && (
-          <div className={`text-[10px] text-gray-400 ${isFromAssistant ? "ml-1" : "mr-1 text-right"}`}>
+          <div className={`text-[10px] text-gray-400 ${onRight ? "mr-1 text-right" : "ml-1"}`}>
             {formatTime(message.createdAt)}
           </div>
         )}

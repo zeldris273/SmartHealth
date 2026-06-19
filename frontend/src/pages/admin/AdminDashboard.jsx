@@ -1,9 +1,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Users, MessageSquare, BarChart3, Settings, ChevronRight, Home, Send, FileText } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, Settings, ChevronRight, Home, Send, FileText, Trash2, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import api from '../../services/api';
 import ChatBubble from '../../components/chatbot/ChatBubble';
+import Modal from '../../components/common/Modal';
 
 const getSupportWsUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -28,6 +30,10 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [hasNewTicketNotification, setHasNewTicketNotification] = useState(false);
   const [ticketFilter, setTicketFilter] = useState('all');
+  const [documents, setDocuments] = useState([]);
+  const [documentLoading, setDocumentLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
   const messagesEndRef = useRef(null);
   const selectedTicketRef = useRef(null);
   const lastNotifiedTicketIdRef = useRef(null);
@@ -90,6 +96,44 @@ const AdminDashboard = () => {
     }
   }, [showAdminNotification]);
 
+  const loadDocuments = useCallback(async () => {
+    try {
+      setDocumentLoading(true);
+      const response = await api.get('/health/documents');
+      setDocuments(response.data);
+    } catch (error) {
+      console.error('Failed to load documents:', error);
+      toast.error('Không thể tải danh sách tài liệu.');
+    } finally {
+      setDocumentLoading(false);
+    }
+  }, []);
+
+  const handleDeleteDocument = useCallback(async () => {
+    if (!documentToDelete) return;
+    try {
+      await api.delete(`/health/documents/${documentToDelete.id}`);
+      toast.success(`Tài liệu "${documentToDelete.filename}" đã được xóa mềm.`);
+      loadDocuments();
+      setShowDeleteModal(false);
+      setDocumentToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      toast.error('Không thể xóa tài liệu.');
+    }
+  }, [documentToDelete, loadDocuments]);
+
+  const handleRestoreDocument = useCallback(async (documentId) => {
+    try {
+      await api.post(`/health/documents/${documentId}/restore`);
+      toast.success('Tài liệu đã được khôi phục.');
+      loadDocuments();
+    } catch (error) {
+      console.error('Failed to restore document:', error);
+      toast.error('Không thể khôi phục tài liệu.');
+    }
+  }, [loadDocuments]);
+
   const loadTicketDetail = useCallback(async (ticketId) => {
     try {
       const response = await api.get(`/support/admin/tickets/${ticketId}`);
@@ -131,8 +175,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (activeItem === 'cskh') {
       queueMicrotask(loadTickets);
+    } else if (activeItem === 'documents') {
+      queueMicrotask(loadDocuments);
     }
-  }, [activeItem, loadTickets]);
+  }, [activeItem, loadTickets, loadDocuments]);
 
   useEffect(() => {
     selectedTicketRef.current = selectedTicket;
@@ -282,21 +328,110 @@ const AdminDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl h-[calc(100vh-4rem)]">
-          <header className="mb-8">
+      <main className="flex-1 h-screen overflow-hidden p-8 flex flex-col">
+        <div className="max-w-7xl w-full h-full mx-auto flex flex-col">
+          <header className="mb-8 flex-shrink-0">
             <h1 className="text-2xl font-bold text-slate-900">Trang quản trị</h1>
             <p className="text-gray-600">
               {activeItem === 'cskh' 
                 ? 'Quản lý và chăm sóc khách hàng'
+                : activeItem === 'documents'
+                ? 'Quản lý tài liệu RAG'
                 : activeItem === 'stats' 
                 ? 'Thống kê doanh nghiệp'
                 : 'Cài đặt hệ thống'}
             </p>
           </header>
 
+          {activeItem === 'documents' && (
+            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                    <FileText className="text-purple-600" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Danh sách tài liệu</h3>
+                    <p className="text-sm text-gray-500">{documents.length} tài liệu</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {documentLoading ? (
+                  <div className="p-6 text-center text-gray-500">Đang tải tài liệu...</div>
+                ) : documents.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">Không có tài liệu nào.</div>
+                ) : (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tên tài liệu
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Trạng thái
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ngày tải lên
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Hành động
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {documents.map((doc) => (
+                        <tr key={doc.id} className={doc.is_deleted ? 'bg-red-50 opacity-70' : ''}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {doc.filename}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {doc.is_deleted ? (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Đã xóa
+                              </span>
+                            ) : (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Hoạt động
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(doc.created_at).toLocaleString('vi-VN')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {doc.is_deleted ? (
+                              <button
+                                onClick={() => handleRestoreDocument(doc.id)}
+                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                title="Khôi phục tài liệu"
+                              >
+                                <RotateCcw size={18} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setDocumentToDelete(doc);
+                                  setShowDeleteModal(true);
+                                }}
+                                className="text-red-600 hover:text-red-900 mr-3"
+                                title="Xóa tài liệu"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeItem === 'cskh' && (
-            <div className="grid grid-cols-12 gap-6 h-[calc(100%-6rem)]">
+            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0">
               {/* Tickets List */}
               <div className="col-span-4 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                 <div className="p-6 border-b border-gray-100">
@@ -409,6 +544,7 @@ const AdminDashboard = () => {
                           <ChatBubble
                             key={msg.id}
                             message={msg}
+                            isAdminView={true}
                           />
                         ))
                       )}
@@ -479,6 +615,31 @@ const AdminDashboard = () => {
           )}
         </div>
       </main>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Xác nhận xóa tài liệu"
+      >
+        <p className="text-gray-700 mb-4">
+          Bạn có chắc chắn muốn xóa tài liệu "{documentToDelete?.filename}"?
+          Thao tác này sẽ xóa mềm tài liệu và tất cả các chunk liên quan.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setShowDeleteModal(false)}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleDeleteDocument}
+            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          >
+            Xóa
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

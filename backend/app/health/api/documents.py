@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, UploadFile, status, HTTPException
 from sqlalchemy.orm import Session
 
 from app.health.core.dependencies import get_current_user
-from app.health.models import KnowledgeDocument, User
+from app.health.models import KnowledgeDocument, KnowledgeChunk, User
 from app.health.schemas.document import DocumentResponse, DocumentUploadResponse
 from app.health.services.rag_service import ingest_upload
 from database import get_db
@@ -32,6 +32,80 @@ async def upload_document(
     )
 
 
+@router.delete(
+    "/{document_id}",
+    response_model=DocumentResponse,
+    summary="Soft delete một tài liệu và toàn bộ chunks liên quan",
+)
+def delete_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime
+
+    document = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+
+    # Soft delete document
+    document.is_deleted = True
+    document.deleted_at = datetime.utcnow()
+    document.deleted_by = current_user.id
+
+    # Soft delete related chunks
+    db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == document.id).update(
+        {"is_deleted": True, "deleted_at": datetime.utcnow()}, synchronize_session=False
+    )
+    db.commit()
+    db.refresh(document)
+    return document
+
+@router.post(
+    "/{document_id}/restore",
+    response_model=DocumentResponse,
+    summary="Khôi phục tài liệu và các chunk đã soft delete",
+)
+def restore_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.is_deleted == True,  # noqa: E712
+        )
+        .first()
+    )
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+
+    # Restore document
+    document.is_deleted = False
+    document.deleted_at = None
+    document.deleted_by = None
+
+    # Restore related chunks
+    db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == document.id).update(
+        {"is_deleted": False, "deleted_at": None}, synchronize_session=False
+    )
+    db.commit()
+    db.refresh(document)
+    return document
+
 @router.get(
     "",
     response_model=list[DocumentResponse],
@@ -41,9 +115,9 @@ def list_documents(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[KnowledgeDocument]:
+    # Admin can see all documents including deleted ones
     return (
         db.query(KnowledgeDocument)
-        .filter(KnowledgeDocument.user_id == current_user.id)
         .order_by(KnowledgeDocument.created_at.desc(), KnowledgeDocument.id.desc())
         .all()
     )

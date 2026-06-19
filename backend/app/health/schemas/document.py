@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class DocumentUploadResponse(BaseModel):
@@ -18,8 +18,11 @@ class DocumentResponse(BaseModel):
     status: str
     chunk_count: int
     created_at: datetime
+    is_deleted: bool
+    deleted_at: datetime | None = None
+    deleted_by: int | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RetrievedChunkResponse(BaseModel):
