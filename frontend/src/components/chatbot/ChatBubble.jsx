@@ -1,3 +1,4 @@
+import { Headphones } from "lucide-react";
 import BaymaxLogo from "../BaymaxLogo";
 
 const ChatBubble = ({ message, isAdminView = false }) => {
@@ -31,10 +32,10 @@ const ChatBubble = ({ message, isAdminView = false }) => {
         <div className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
           {isBot ? (
             <BaymaxLogo size={20} />
+          ) : isAdmin ? (
+            <Headphones size={18} className="text-red-600" />
           ) : (
-            <span className="text-xs font-bold text-blue-500">
-              {isAdmin ? "A" : "U"}
-            </span>
+            <span className="text-xs font-bold text-blue-500">U</span>
           )}
         </div>
       )}
