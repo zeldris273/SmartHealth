@@ -57,7 +57,7 @@ const Profile = () => {
       national_id: user?.national_id || '',
       address: user?.address || '',
       fitness_goal: user?.fitness_goal || '',
-      avatar: user?.avatar || ''
+      avatar: user?.avatar_url || ''
     });
     setIsEditing(true);
   };
@@ -145,19 +145,19 @@ const Profile = () => {
           <div className="bg-white border-b border-slate-200 px-6 py-8 sm:p-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-5">
               <div className="relative">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 p-1 shadow-md">
-                  <div className="w-full h-full rounded-[14px] bg-white flex items-center justify-center overflow-hidden">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                      <HeartPulse size={36} className="text-red-500" />
-                    )}
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 p-1 shadow-md">
+                    <div className="w-full h-full rounded-[14px] bg-white flex items-center justify-center overflow-hidden">
+                      {user?.avatar_url ? (
+                        <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <HeartPulse size={36} className="text-red-500" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 bg-white shadow-sm border border-slate-200 p-1.5 rounded-lg">
+                    <Shield size={14} className="text-red-600" />
                   </div>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-white shadow-sm border border-slate-200 p-1.5 rounded-lg">
-                  <Shield size={14} className="text-red-600" />
-                </div>
-              </div>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900">{user?.full_name || 'Người dùng'}</h1>
                 <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">

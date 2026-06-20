@@ -58,8 +58,12 @@ const Header = () => {
     localStorage.removeItem(notifKey);
   };
 
-  const handleDashboardClick = () => {
+  const clearAllNotifications = () => {
     clearNotifications();
+  };
+
+  const handleDashboardClick = () => {
+    clearAllNotifications();
   };
 
   const spawnParticles = () => {
@@ -347,16 +351,29 @@ const Header = () => {
             </div>
 
             {isAuthenticated ? (
-              <button
-                onClick={() => {
-                  logout();
-                  navigate("/", { replace: true });
-                }}
-                className="flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-100 hover:shadow-md hover:scale-105 active:scale-95"
-              >
-                <LogOut size={15} />
-                Đăng xuất
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-rose-600 p-0.5 shadow-sm">
+                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                      {user?.avatar_url ? (
+                        <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={14} className="text-red-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate("/", { replace: true });
+                  }}
+                  className="flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-100 hover:shadow-md hover:scale-105 active:scale-95"
+                >
+                  <LogOut size={15} />
+                  Đăng xuất
+                </button>
+              </div>
             ) : (
               <div className="btn-wrap-wow relative">
                 <div className="tooltip-wow">Đăng nhập hoặc đăng ký</div>

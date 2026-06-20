@@ -219,6 +219,10 @@ export const AuthProvider = ({ children }) => {
       setUser(userProfile);
       setIsAuthenticated(true);
       localStorage.setItem('user_profile', JSON.stringify(userProfile));
+      
+      // Refresh profile to make sure we get the latest avatar_url
+      await refreshProfile();
+      
       toast.success('Successfully logged in with Google!');
       return { success: true };
     } catch (error) {
