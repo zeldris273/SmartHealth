@@ -1,6 +1,11 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI } from '../services/auth';
 import { toast } from 'react-toastify';
+
+const getSupportWsUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  return `${apiUrl.replace(/^http/, 'ws')}/support/ws`;
+};
 
 const AuthContext = createContext(null);
 
@@ -154,6 +159,72 @@ export const AuthProvider = ({ children }) => {
 
     return () => clearInterval(intervalId);
   }, [isAuthenticated, refreshProfile]);
+
+  // WebSocket for admin notifications (runs always when admin is authenticated)
+  const wsRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') {
+      // Cleanup if not admin or not authenticated
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      return;
+    }
+
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (!token) return;
+
+    let shouldReconnect = true;
+
+    const connect = () => {
+      console.log('Admin: Connecting to support WebSocket...');
+      wsRef.current = new WebSocket(`${getSupportWsUrl()}?token=${encodeURIComponent(token)}`);
+
+      wsRef.current.onopen = () => {
+        console.log('Admin: WebSocket connected');
+      };
+
+      wsRef.current.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+        if (['ticket_created', 'message_created'].includes(payload.type)) {
+          console.log('Admin: Received new notification via WebSocket');
+          window.dispatchEvent(new CustomEvent('notification:new', { detail: { count: 1 } }));
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('Admin: WebSocket error:', error);
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('Admin: WebSocket disconnected');
+        if (shouldReconnect) {
+          reconnectTimerRef.current = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      shouldReconnect = false;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [isAuthenticated, user?.id, user?.role]);
 
   const login = async (credentials, rememberMe = false) => {
     console.log('Login function called with rememberMe:', rememberMe);
