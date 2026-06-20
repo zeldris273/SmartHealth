@@ -284,6 +284,10 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
+    
+    // Clear notifications when admin dashboard is opened
+    window.dispatchEvent(new CustomEvent("notification:clear"));
+    
     return () => {
       document.body.style.overflow = "auto";
     };

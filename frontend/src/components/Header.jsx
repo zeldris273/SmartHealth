@@ -30,8 +30,12 @@ const Header = () => {
     }
 
     const handleStorageChange = (e) => {
-      if (e.key === notifKey && e.newValue) {
-        setNotificationCount(parseInt(e.newValue, 10));
+      if (e.key === notifKey) {
+        if (e.newValue) {
+          setNotificationCount(parseInt(e.newValue, 10));
+        } else {
+          setNotificationCount(0);
+        }
       }
     };
 
@@ -43,12 +47,19 @@ const Header = () => {
       });
     };
 
+    const handleClearNotification = () => {
+      setNotificationCount(0);
+      localStorage.removeItem(notifKey);
+    };
+
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("notification:new", handleNewNotification);
+    window.addEventListener("notification:clear", handleClearNotification);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("notification:new", handleNewNotification);
+      window.removeEventListener("notification:clear", handleClearNotification);
     };
   }, [isAuthenticated, user?.id]);
 
@@ -309,9 +320,8 @@ const Header = () => {
                   to={item.to}
                   onClick={(e) => {
                     addRipple(e);
-
                     if (item.label === "Bảng điều khiển") {
-                      handleDashboardClick();
+                      clearAllNotifications();
                     }
                   }}
                   className={({ isActive }) =>
@@ -329,7 +339,10 @@ const Header = () => {
               {isAuthenticated && user?.role === "admin" && (
                 <NavLink
                   to="/admin"
-                  onClick={addRipple}
+                  onClick={(e) => {
+                    addRipple(e);
+                    clearAllNotifications();
+                  }}
                   className={({ isActive }) =>
                     `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer ${
                       isActive

@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { AuthProvider } from "./auth/context/AuthContext";
+import { AuthProvider, useAuth } from "./auth/context/AuthContext";
 import ProtectedRoute from "./auth/components/ProtectedRoute";
 import AdminRoute from "./auth/components/AdminRoute";
 import AuthModal from "./auth/components/AuthModal";
@@ -58,12 +58,30 @@ const AppContent = () => {
                 </ProtectedRoute>
               }
             />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
             <Route path="/access-denied" element={<AccessDenied />} />
           </Routes>
-      <CSKHChatWidget />
+      <ConditionalCSKHWidget />
     </AuthProvider>
   );
+};
+
+const ConditionalCSKHWidget = () => {
+  const { user, isAuthenticated } = useAuth();
+
+  // Don't show CSKH widget if user is admin
+  if (isAuthenticated && user?.role === 'admin') {
+    return null;
+  }
+
+  return <CSKHChatWidget />;
 };
 
 export default App;
