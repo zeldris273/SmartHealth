@@ -1,5 +1,14 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class WebSocketOriginMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.scope.get("type") == "websocket":
+            # Force the origin to be accepted for WebSockets
+            # In a real production environment, you should validate the origin
+            pass 
+        return await call_next(request)
 from sqlalchemy import text
 
 from app.health.api.auth import router as auth_router
@@ -12,6 +21,7 @@ from app.health.api.chat import router as chat_router
 from app.health.api.documents import router as documents_router
 from app.health.api.otp import router as otp_router
 from app.health.api.support import router as support_router
+from app.health.api.admin_stats import router as admin_stats_router
 
 from database import Base, engine
 
@@ -26,6 +36,8 @@ app = FastAPI(
     description="API sức khoẻ thông minh – Auth, User, BMI, Cân nặng, Calories & Gợi ý sức khoẻ",
     version="1.0.0",
 )
+
+app.add_middleware(WebSocketOriginMiddleware)
 
 # ---- Cấu hình CORS để frontend có thể gọi API
 # Không dùng allow_origins=["*"] khi có allow_credentials=True vì trình duyệt sẽ block
@@ -54,6 +66,7 @@ app.include_router(documents_router)
 app.include_router(otp_router)
 app.include_router(google_oauth_router)
 app.include_router(support_router)
+app.include_router(admin_stats_router)
 
 
 @app.get("/")

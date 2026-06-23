@@ -230,7 +230,8 @@ def search_relevant_chunks(
         .all()
     )
 
-    return [
+    threshold = getattr(settings, "RAG_SIMILARITY_THRESHOLD", 0.35)
+    ranked = [
         RetrievedChunk(
             document_id=chunk.document_id,
             filename=filename,
@@ -240,6 +241,11 @@ def search_relevant_chunks(
         )
         for chunk, filename, distance in rows
     ]
+    if not ranked:
+        return []
+
+    filtered = [chunk for chunk in ranked if chunk.score >= threshold]
+    return filtered
 
 
 def format_retrieved_context(chunks: list[RetrievedChunk]) -> str:

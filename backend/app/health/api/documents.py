@@ -57,8 +57,14 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     # Forward to service that handles ingestion and chunk creation
-    document = await ingest_upload(db, current_user, file)
-    return DocumentUploadResponse.from_orm(document)
+    document = await ingest_upload(db, current_user.id, file)
+    return DocumentUploadResponse(
+        id=document.id,
+        filename=document.filename,
+        status=document.status,
+        chunk_count=document.chunk_count,
+        message="Tài liệu đã được xử lý và lập chỉ mục thành công.",
+    )
 
 
 @router.post(

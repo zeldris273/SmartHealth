@@ -6,8 +6,13 @@ const ChatBubble = ({ message, isAdminView = false }) => {
   const isAdmin = message.from === "admin";
   const isError = message.isError;
 
+  const formatSource = (src) => {
+    const [file, chunk] = String(src).split("#");
+    return chunk ? `${file} (đoạn ${chunk})` : file;
+  };
+
   const uniqueSources = message.sources?.length
-    ? [...new Set(message.sources.map((src) => src.split("#")[0]))]
+    ? [...new Set(message.sources.map(formatSource))]
     : [];
 
   // In user view: bot/admin are "others" (left), user is "me" (right)
@@ -53,13 +58,31 @@ const ChatBubble = ({ message, isAdminView = false }) => {
                     : "rounded-tl-none bg-gray-200 text-gray-800"
           }`}
         >
-          {message.text}
-          {isBot && uniqueSources.length > 0 && (
-            <div className="mt-1 text-[9px] text-red-600 italic">
-              Nguồn: {uniqueSources.join(", ")}
+          {message.isStreaming && !message.text ? (
+            <div className="flex gap-1 py-0.5">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-2 w-2 rounded-full bg-red-400 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
             </div>
+          ) : (
+            <>
+              {message.text}
+              {message.isStreaming && (
+                <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-red-400 align-middle" />
+              )}
+            </>
           )}
         </div>
+        {isBot && uniqueSources.length > 0 && !message.isStreaming && (
+          <div className="mt-1 rounded-lg border border-red-100 bg-red-50/80 px-2.5 py-1.5 text-[11px] text-red-700">
+            <span className="font-medium">Nguồn tham khảo:</span>{" "}
+            {uniqueSources.join(" · ")}
+          </div>
+        )}
         {message.createdAt && (
           <div
             className={`text-[10px] text-gray-400 ${onRight ? "mr-1 text-right" : "ml-1"}`}

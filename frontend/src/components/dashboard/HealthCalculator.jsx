@@ -2,9 +2,10 @@ import { useState } from 'react';
 import api from '../../services/api';
 import HealthTipsModal from './HealthTipsModal';
 import { useAuth } from '../../auth/context/AuthContext';
+import { toast } from 'react-toastify';
 
 const HealthCalculator = ({ onSave }) => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, openAuthModal } = useAuth();
   
   // Shared fields
   const [weight, setWeight] = useState('');
@@ -32,6 +33,12 @@ const HealthCalculator = ({ onSave }) => {
 
   const handleCalculateBMI = async (e) => {
     e.preventDefault();
+    if (saveHistory && !isAuthenticated) {
+      toast.warning('Vui lòng đăng nhập để lưu lịch sử sức khỏe!');
+      openAuthModal('login');
+      return;
+    }
+
     const h = parseFloat(height);
     const w = parseFloat(weight);
     if (!h || !w) {
@@ -72,6 +79,12 @@ const HealthCalculator = ({ onSave }) => {
 
   const handleCalculateCalories = async (e) => {
     e.preventDefault();
+    if (saveHistory && !isAuthenticated) {
+      toast.warning('Vui lòng đăng nhập để lưu lịch sử sức khỏe!');
+      openAuthModal('login');
+      return;
+    }
+
     const h = parseFloat(height);
     const w = parseFloat(weight);
     const a = parseInt(age);

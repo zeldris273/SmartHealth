@@ -10,7 +10,23 @@ import {
   FileText,
   Trash2,
   RotateCcw,
+  Activity,
+  PieChart as PieChartIcon,
+  BarChart as BarChartIcon,
+  Target,
 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../services/api";
@@ -47,6 +63,8 @@ const AdminDashboard = () => {
   const [documentFilter, setDocumentFilter] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [statsData, setStatsData] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const selectedTicketRef = useRef(null);
   const lastNotifiedTicketIdRef = useRef(null);
@@ -126,6 +144,19 @@ const AdminDashboard = () => {
       toast.error("Không thể tải danh sách tài liệu.");
     } finally {
       setDocumentLoading(false);
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      const response = await api.get("/health/admin/stats/");
+      setStatsData(response.data);
+    } catch (error) {
+      console.error("Failed to load statistics:", error);
+      toast.error("Không thể tải dữ liệu thống kê.");
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -213,8 +244,10 @@ const AdminDashboard = () => {
       queueMicrotask(loadTickets);
     } else if (activeItem === "documents") {
       queueMicrotask(loadDocuments);
+    } else if (activeItem === "stats") {
+      queueMicrotask(loadStats);
     }
-  }, [activeItem, loadTickets, loadDocuments]);
+  }, [activeItem, loadTickets, loadDocuments, loadStats]);
 
   useEffect(() => {
     selectedTicketRef.current = selectedTicket;
@@ -350,20 +383,7 @@ const AdminDashboard = () => {
   return (
     <div className="w-full h-[calc(100dvh-69px)] overflow-hidden flex bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-100 flex-shrink-0">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                SmartHealth
-              </p>
-              <p className="text-xs text-red-500">Admin Panel</p>
-            </div>
-          </Link>
-        </div>
+      <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">    
         <nav className="mt-6 space-y-2 px-4 flex-1 overflow-y-auto">
           {sidebarItems.map((item) => (
             <button
@@ -381,7 +401,7 @@ const AdminDashboard = () => {
               }`}
             >
               {item.icon}
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1 whitespace-nowrap">{item.label}</span>
               {item.id === "cskh" && hasNewTicketNotification && (
                 <span className="flex h-3 w-3 rounded-full bg-red-500"></span>
               )}
@@ -732,54 +752,146 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {activeItem === "stats" && (
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pb-4">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                    Thống kê người dùng
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Tổng người dùng</span>
-                      <span className="text-xl font-bold text-slate-900">
-                        156
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">
-                        Người dùng mới hôm nay
-                      </span>
-                      <span className="text-xl font-bold text-green-600">
-                        +12
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                    Tỷ lệ tính toán
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Số lần tính BMI</span>
-                      <span className="text-xl font-bold text-slate-900">
-                        523
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">
-                        Số lần tính Calories
-                      </span>
-                      <span className="text-xl font-bold text-green-600">
-                        389
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+           {activeItem === "stats" && (
+             <div className="flex-1 overflow-y-auto min-h-0 space-y-6 pb-6">
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 {/* BMI Distribution Pie Chart */}
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col">
+                   <div className="flex items-center gap-3 mb-6">
+                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                       <PieChartIcon className="text-blue-600" size={20} />
+                     </div>
+                     <h3 className="text-lg font-semibold text-slate-900">Phân bố BMI toàn hệ thống</h3>
+                   </div>
+                   <div className="h-[300px] w-full">
+                     {statsLoading || !statsData ? (
+                       <div className="h-full flex items-center justify-center text-gray-400">Đang tải dữ liệu...</div>
+                     ) : (
+                       <ResponsiveContainer width="100%" height="100%">
+                         <PieChart>
+                           <Pie
+                             data={[
+                               { name: 'Thiếu cân', value: statsData.bmi_distribution.underweight },
+                               { name: 'Bình thường', value: statsData.bmi_distribution.normal },
+                               { name: 'Thừa cân', value: statsData.bmi_distribution.overweight },
+                               { name: 'Béo phì', value: statsData.bmi_distribution.obese },
+                             ]}
+                             cx="50%"
+                             cy="50%"
+                             innerRadius={60}
+                             outerRadius={100}
+                             paddingAngle={5}
+                             dataKey="value"
+                           >
+                             <Cell fill="#60a5fa" />
+                             <Cell fill="#34d399" />
+                             <Cell fill="#fbbf24" />
+                             <Cell fill="#f87171" />
+                           </Pie>
+                           <Tooltip />
+                           <Legend verticalAlign="bottom" height={36} />
+                         </PieChart>
+                       </ResponsiveContainer>
+                     )}
+                   </div>
+                 </div>
+
+                 {/* Popular Goals Bar Chart */}
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col">
+                   <div className="flex items-center gap-3 mb-6">
+                     <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                       <Target className="text-green-600" size={20} />
+                     </div>
+                     <h3 className="text-lg font-semibold text-slate-900">Mục tiêu sức khỏe phổ biến</h3>
+                   </div>
+                   <div className="h-[300px] w-full">
+                     {statsLoading || !statsData ? (
+                       <div className="h-full flex items-center justify-center text-gray-400">Đang tải dữ liệu...</div>
+                     ) : (
+                       <ResponsiveContainer width="100%" height="100%">
+                         <BarChart
+                           data={Object.entries(statsData.popular_goals.goals).map(([name, value]) => ({ name, value }))}
+                           layout="vertical"
+                           margin={{ left: 20 }}
+                         >
+                           <XAxis type="number" hide />
+                           <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                           <Tooltip />
+                           <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} />
+                         </BarChart>
+                       </ResponsiveContainer>
+                     )}
+                   </div>
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                 {/* Age Distribution */}
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 col-span-2">
+                   <div className="flex items-center gap-3 mb-6">
+                     <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                       <BarChartIcon className="text-purple-600" size={20} />
+                     </div>
+                     <h3 className="text-lg font-semibold text-slate-900">Phân bố độ tuổi</h3>
+                   </div>
+                   <div className="h-[250px] w-full">
+                     {statsLoading || !statsData ? (
+                       <div className="h-full flex items-center justify-center text-gray-400">Đang tải dữ liệu...</div>
+                     ) : (
+                       <ResponsiveContainer width="100%" height="100%">
+                         <BarChart
+                           data={Object.entries(statsData.demographics.age_groups).map(([name, value]) => ({ name, value }))}
+                         >
+                           <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                           <YAxis tick={{ fontSize: 12 }} />
+                           <Tooltip />
+                           <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                         </BarChart>
+                       </ResponsiveContainer>
+                     )}
+                   </div>
+                 </div>
+
+                 {/* Calorie Averages */}
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                   <div className="flex items-center gap-3 mb-6">
+                     <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
+                       <Activity className="text-orange-600" size={20} />
+                     </div>
+                     <h3 className="text-lg font-semibold text-slate-900">TDEE Trung bình</h3>
+                   </div>
+                   <div className="space-y-6">
+                     {statsLoading || !statsData ? (
+                       <div className="py-10 text-center text-gray-400">Đang tải dữ liệu...</div>
+                     ) : (
+                       Object.entries(statsData.calorie_averages.average_tdee).map(([gender, avg]) => (
+                         <div key={gender} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                           <span className="text-gray-600 capitalize font-medium">{gender === 'male' ? 'Nam' : 'Nữ'}</span>
+                           <span className="text-xl font-bold text-slate-900">{avg} <span className="text-sm font-normal text-gray-500">kcal</span></span>
+                         </div>
+                       ))
+                     )}
+                   </div>
+                 </div>
+               </div>
+
+               {/* Gender Distribution Simple Cards */}
+               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                 <h3 className="text-lg font-semibold text-slate-900 mb-4">Phân bố Giới tính</h3>
+                 <div className="flex flex-wrap gap-4">
+                   {statsLoading || !statsData ? (
+                     <div className="py-4 text-gray-400">Đang tải dữ liệu...</div>
+                   ) : (
+                     Object.entries(statsData.demographics.gender).map(([gender, count]) => (
+                       <div key={gender} className="px-6 py-3 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
+                         <span className="capitalize">{gender === 'male' ? 'Nam' : gender === 'female' ? 'Nữ' : gender}:</span> {count} người
+                       </div>
+                     ))
+                   )}
+                 </div>
+               </div>
+             </div>
+           )}
 
           {activeItem === "settings" && (
             <div className="flex-1 overflow-y-auto min-h-0">

@@ -226,7 +226,7 @@ const ChatPage = () => {
     for (const file of files) {
       const formData = new FormData();
       formData.append("file", file.rawFile);
-      const res = await api.post("/health/documents/upload", formData, {
+      const res = await api.post("/health/documents", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       uploaded.push(res.data);
@@ -256,6 +256,9 @@ const ChatPage = () => {
       messages: [...c.messages, userMessage],
     }));
     setIsTyping(true);
+
+    let botMsgId = null;
+
     try {
       if (files.length > 0) {
         const docs = await uploadDocuments(files);
@@ -276,40 +279,150 @@ const ChatPage = () => {
           ),
         }));
       }
-      const response = await api.post("/health/chat", {
-        message: text,
-        session_id: sessionId,
-        history: toHistory(msgBefore),
-        use_saved_bmi: true,
-        save_history: isAuthenticated,
-        use_rag: true,
-      });
-      const botMessage = {
-        id: `bot-${Date.now()}`,
+
+      botMsgId = `bot-${Date.now()}`;
+      const botPlaceholder = {
+        id: botMsgId,
         from: "bot",
-        text: response.data?.reply || "Baymax chưa nhận được phản hồi phù hợp.",
-        sources: response.data?.sources || [],
+        text: "",
+        sources: [],
+        isStreaming: true,
       };
+
       updateConversation(sessionId, (c) => ({
         ...c,
-        messages: [...c.messages, botMessage],
+        messages: [...c.messages, botPlaceholder],
       }));
-      // Increment notification count when bot responds
+
+      const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/health/chat`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          message: text,
+          session_id: sessionId,
+          history: toHistory(msgBefore),
+          use_saved_bmi: true,
+          save_history: isAuthenticated,
+          use_rag: true,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = "";
+      let receivedSources = [];
+      let sseBuffer = "";
+
+      const applyBotUpdate = (patch) => {
+        updateConversation(sessionId, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === botMsgId ? { ...m, ...patch } : m
+          ),
+        }));
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n");
+        sseBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+
+          let data;
+          try {
+            data = JSON.parse(line.slice(6));
+          } catch {
+            continue;
+          }
+
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          if (Array.isArray(data.sources)) {
+            receivedSources = data.sources;
+            applyBotUpdate({ sources: receivedSources });
+          }
+
+          if (data.token) {
+            accumulatedText += data.token;
+            applyBotUpdate({
+              text: accumulatedText,
+              sources: receivedSources,
+            });
+          }
+
+          if (data.done) {
+            if (Array.isArray(data.sources)) {
+              receivedSources = data.sources;
+            }
+            applyBotUpdate({
+              sources: receivedSources,
+              isStreaming: false,
+            });
+          }
+        }
+      }
+
+      if (sseBuffer.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(sseBuffer.slice(6));
+          if (Array.isArray(data.sources)) {
+            receivedSources = data.sources;
+            applyBotUpdate({ sources: receivedSources });
+          }
+          if (data.token) {
+            accumulatedText += data.token;
+            applyBotUpdate({
+              text: accumulatedText,
+              sources: receivedSources,
+            });
+          }
+          if (data.done) {
+            if (Array.isArray(data.sources)) {
+              receivedSources = data.sources;
+            }
+            applyBotUpdate({
+              sources: receivedSources,
+              isStreaming: false,
+            });
+          }
+        } catch {
+          // ignore trailing partial frame
+        }
+      }
+
+      if (!accumulatedText) {
+        throw new Error("Không nhận được phản hồi từ chatbot.");
+      }
+
+      applyBotUpdate({ isStreaming: false });
+
       incrementNotificationCount(1, user?.id);
     } catch (error) {
-      const detail = error.response?.data?.detail;
+      console.error("Chat Error:", error);
       updateConversation(sessionId, (c) => ({
         ...c,
         messages: [
-          ...c.messages,
+          ...c.messages.filter(
+            (m) => !(botMsgId && m.id === botMsgId && !m.text),
+          ),
           {
             id: `error-${Date.now()}`,
             from: "bot",
             isError: true,
-            text:
-              typeof detail === "string"
-                ? detail
-                : "Hiện chưa xử lý được yêu cầu. Vui lòng thử lại.",
+            text: error.message || "Hiện chưa xử lý được yêu cầu. Vui lòng thử lại.",
           },
         ],
       }));

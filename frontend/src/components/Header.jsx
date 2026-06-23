@@ -16,6 +16,10 @@ const Header = () => {
   const btnRef = useRef(null);
   const [notificationCount, setNotificationCount] = useState(0);
 
+  const filteredNavItems = navItems.filter(
+    (item) => !(item.to === "/profile" && !isAuthenticated)
+  );
+
   useEffect(() => {
     if (!isAuthenticated) {
       setNotificationCount(0);
@@ -314,7 +318,7 @@ const Header = () => {
                 borderColor: "rgba(239,68,68,0.12)",
               }}
             >
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
