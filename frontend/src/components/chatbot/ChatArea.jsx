@@ -87,22 +87,25 @@ const ChatArea = ({ messages, isTyping, onSend, activeTitle, user }) => {
           {messages.map((m) => (
             <ChatBubble key={m.id} message={m} />
           ))}
-          {isTyping && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center flex-shrink-0">
-                <Bot size={17} />
+          {isTyping &&
+            !messages.some(
+              (m) => m.from === "bot" && m.id !== "welcome" && m.isStreaming,
+            ) && (
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center flex-shrink-0">
+                  <Bot size={17} />
+                </div>
+                <div className="flex gap-1 px-3 py-2 bg-red-50 rounded-2xl">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 bg-red-400 rounded-full animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-1 px-3 py-2 bg-red-50 rounded-2xl">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="w-2 h-2 bg-red-400 rounded-full animate-bounce"
-                    style={{ animationDelay: `${i * 0.15}s` }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+            )}
           <div ref={bottomRef} />
         </div>
       </div>

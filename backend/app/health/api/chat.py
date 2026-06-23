@@ -1,7 +1,9 @@
 from datetime import date, datetime, timezone
 from uuid import uuid4
 
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy import func
@@ -19,7 +21,7 @@ from app.health.schemas.chat import (
     ChatResponse,
     ChatSessionUpdateRequest,
 )
-from app.health.services.chat_service import ask_ai
+from app.health.services.chat_service import ask_ai_stream, get_model_name, should_use_rag, is_document_query
 from app.health.services.rag_service import RetrievedChunk, format_retrieved_context, search_relevant_chunks
 from database import get_db
 
@@ -202,14 +204,20 @@ def ensure_chat_session(
 
 
 def build_rag_sources(chunks: list[RetrievedChunk]) -> list[str]:
-    seen_document_ids: set[int] = set()
+    seen: set[str] = set()
     sources: list[str] = []
     for chunk in chunks:
-        if chunk.document_id in seen_document_ids:
+        label = f"{chunk.filename}#{chunk.chunk_index + 1}"
+        if label in seen:
             continue
-        seen_document_ids.add(chunk.document_id)
-        sources.append(chunk.filename)
+        seen.add(label)
+        sources.append(label)
     return sources
+
+
+def filter_chunks_for_sources(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
+    threshold = getattr(settings, "RAG_SOURCES_THRESHOLD", 0.42)
+    return [chunk for chunk in chunks if chunk.score >= threshold]
 
 
 def save_chat_pair(
@@ -300,19 +308,17 @@ def get_or_create_legacy_session(
 
 @router.post(
     "/chat",
-    response_model=ChatResponse,
-    summary="Chatbot tư vấn sức khỏe bằng RAG + OpenAI",
+    summary="Chatbot tư vấn sức khỏe bằng RAG + OpenAI (Streaming)",
     status_code=status.HTTP_200_OK,
 )
-def chat_with_ai(
+async def chat_with_ai(
     request: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
-) -> ChatResponse:
+):
     session_id = request.session_id or uuid4().hex
     bmi = request.bmi
     history = request.history
-    saved = False
     latest_bmi = None
     bmi_history: list[BMIRecord] = []
     retrieved_context = None
@@ -329,42 +335,52 @@ def chat_with_ai(
         history_dicts = get_recent_chat_history(db, current_user.id, session_id)
         history = [ChatHistoryItem(**item) for item in history_dicts]
 
-    if current_user and request.use_rag:
+    if current_user and request.use_rag and should_use_rag(request.message, history):
         chunks = search_relevant_chunks(db, current_user.id, request.message)
         retrieved_context = format_retrieved_context(chunks)
-        sources = build_rag_sources(chunks)
+        sources = build_rag_sources(filter_chunks_for_sources(chunks))
 
     health_context = build_health_context(current_user, latest_bmi, bmi_history)
 
-    result = ask_ai(
-        message=request.message,
-        bmi=bmi,
-        history=history,
-        health_context=health_context,
-        retrieved_context=retrieved_context,
-    )
+    async def event_generator():
+        full_reply = ""
+        try:
+            yield f"data: {json.dumps({'sources': sources}, ensure_ascii=False)}\n\n"
 
-    if current_user and request.save_history:
-        save_chat_pair(
-            db=db,
-            user_id=current_user.id,
-            session_id=session_id,
-            user_message=request.message,
-            assistant_reply=result.reply,
-            provider=result.provider,
-            model_name=result.model,
-            sources=sources,
-        )
-        saved = True
+            async for token in ask_ai_stream(
+                message=request.message,
+                bmi=bmi,
+                history=history,
+                health_context=health_context,
+                retrieved_context=retrieved_context,
+            ):
+                full_reply += token
+                yield f"data: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
 
-    return ChatResponse(
-        reply=result.reply,
-        provider=result.provider,
-        model=result.model,
-        session_id=session_id,
-        bmi=bmi,
-        saved=saved,
-        sources=sources,
+            yield f"data: {json.dumps({'done': True, 'sources': sources, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+
+            if current_user and request.save_history and full_reply:
+                save_chat_pair(
+                    db=db,
+                    user_id=current_user.id,
+                    session_id=session_id,
+                    user_message=request.message,
+                    assistant_reply=full_reply,
+                    provider="openai", # Defaulting to openai as per chat_service.py
+                    model_name=get_model_name("openai"), 
+                    sources=sources,
+                )
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

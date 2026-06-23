@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4.1-mini"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     RAG_TOP_K: int = 5
+    RAG_SIMILARITY_THRESHOLD: float = 0.35
+    RAG_SOURCES_THRESHOLD: float = 0.35
 
     # --- CẤU HÌNH HỆ THỐNG GỬI OTP QUA GMAIL (NÂNG CẤP) ---
     SMTP_HOST: str = "smtp.gmail.com"

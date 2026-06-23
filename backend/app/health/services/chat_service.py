@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 try:
-    from openai import OpenAI
+    from openai import OpenAI, AsyncOpenAI
 except ImportError:
     OpenAI = None
+    AsyncOpenAI = None
 
 from fastapi import HTTPException, status
 
@@ -56,6 +57,37 @@ def is_health_related_with_context(message: str, history: list[ChatHistoryItem] 
 
     history = history or []
     return any(is_health_related(item.content) for item in history[-6:])
+
+
+DOCUMENT_QUERY_KEYWORDS = {
+    "tài liệu",
+    "tai lieu",
+    "file",
+    "pdf",
+    "docx",
+    "txt",
+    "upload",
+    "đã tải",
+    "da tai",
+    "trong file",
+    "trong tài liệu",
+    "trong tai lieu",
+    "theo tài liệu",
+    "theo tai lieu",
+    "nội dung file",
+    "noi dung file",
+    "đính kèm",
+    "din kem",
+}
+
+
+def is_document_query(message: str) -> bool:
+    normalized = message.strip().lower()
+    return any(keyword in normalized for keyword in DOCUMENT_QUERY_KEYWORDS)
+
+
+def should_use_rag(message: str, history: list[ChatHistoryItem] | None = None) -> bool:
+    return is_health_related_with_context(message, history) or is_document_query(message)
 
 
 def get_bmi_category_vi(bmi: float | None) -> str | None:
@@ -116,6 +148,70 @@ Câu hỏi hiện tại:
 """.strip()
 
 
+async def _ask_openai_stream(prompt: str):
+    api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
+
+    if not api_key or api_key in ["your-openai-api-key-here", ""]:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OPENAI_API_KEY chưa được cấu hình trong file .env.",
+        )
+
+    if AsyncOpenAI is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chưa cài thư viện openai. Hãy chạy: pip install -r requirements.txt",
+        )
+
+    model_name = get_model_name("openai")
+    client = AsyncOpenAI(api_key=api_key)
+
+    response = await client.chat.completions.create(
+        model=model_name,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        stream=True,
+    )
+
+    async for chunk in response:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield content
+
+    # We need the model name and provider to be known by the caller. 
+    # Since this is a generator, we can't easily return AIResult.
+    # The caller will know it's openai and the model from get_model_name.
+
+
+async def ask_ai_stream(
+    message: str,
+    bmi: float | None = None,
+    history: list[ChatHistoryItem] | None = None,
+    health_context: str | None = None,
+    retrieved_context: str | None = None,
+):
+    if not is_health_related_with_context(message, history):
+        yield OFF_TOPIC_RESPONSE
+        return
+
+    prompt = build_prompt(
+        message=message,
+        bmi=bmi,
+        history=history,
+        health_context=health_context,
+        retrieved_context=retrieved_context,
+    )
+    
+    try:
+        async for token in _ask_openai_stream(prompt):
+            yield token
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # We can't raise HTTPException inside a generator that is already streaming
+        # We yield the error message instead.
+        yield f"Error: {str(exc)}"
+
 def _ask_openai(prompt: str) -> AIResult:
     api_key = getattr(settings, "OPENAI_API_KEY", None) or getattr(settings, "OPEN_API_KEY", None)
 
@@ -133,19 +229,13 @@ def _ask_openai(prompt: str) -> AIResult:
 
     model_name = get_model_name("openai")
     client = OpenAI(api_key=api_key)
-
     response = client.chat.completions.create(
         model=model_name,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
-        timeout=20.0,
     )
-
-    reply = response.choices[0].message.content
-    if not reply:
-        raise ValueError("OpenAI không trả về nội dung phản hồi.")
-
-    return AIResult(reply=reply.strip(), provider="openai", model=model_name)
+    reply = response.choices[0].message.content or ""
+    return AIResult(reply=reply, provider="openai", model=model_name)
 
 
 def ask_ai(
@@ -169,6 +259,8 @@ def ask_ai(
     provider = get_ai_provider()
 
     try:
+        # This remains synchronous as per original implementation
+        # but for streaming we use ask_ai_stream.
         return _ask_openai(prompt)
     except HTTPException:
         raise

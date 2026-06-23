@@ -479,9 +479,6 @@ const Profile = () => {
                     <Button variant="secondary" className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50">
                       Đổi mật khẩu
                     </Button>
-                    <Button variant="secondary" className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50">
-                      Bật xác thực 2 lớp
-                    </Button>
                   </div>
                 </div>
 

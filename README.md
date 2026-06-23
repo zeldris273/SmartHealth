@@ -22,12 +22,13 @@
 |---|---|
 | 🔐 **Authentication** | Secure Register, login, and JWT-based session management. |
 | 🌐 **Google OAuth 2.0** | One-click login using Google accounts for better UX. |
-| 👤 **Profile Management** | Comprehensive profile tracking including age, weight, height, and fitness goals. |
+| 👤 **Profile Management** | Comprehensive profile tracking including age, weight, height, fitness goals, and body frame metrics (wrist/ankle). |
 | 📊 **BMI Tracker** | Real-time BMI calculation with interactive historical charts. |
 | ⚖️ **Weight Dashboard** | Monitor weight fluctuations over time with sleek Recharts visualizations. |
 | 🔥 **Calorie Calculator** | Personalized TDEE/BMR estimation based on activity level and body metrics. |
 | 💡 **Health Tips** | AI-curated health advice tailored to your current health status. |
 | 📧 **OTP Verification** | Enhanced security with email-based One-Time Passwords for account recovery/verification. |
+| 🎧 **Customer Support** | Real-time ticketing system with WebSocket chat, admin management, and email notifications. |
 | 🤖 **AI Chatbot (RAG)** | Smart assistant powered by GPT-4o-mini with Retrieval-Augmented Generation (RAG) for medical knowledge. |
 | 📂 **Document Management** | Admin capability to upload health documents for the AI to reference. |
 

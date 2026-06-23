@@ -141,6 +141,7 @@ def send_admin_notification_task(
 
 @router.websocket("/ws")
 async def support_websocket(websocket: WebSocket):
+    print(f"WebSocket connection attempt: {websocket.query_params}")
     token = websocket.query_params.get("token")
     if not token:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
