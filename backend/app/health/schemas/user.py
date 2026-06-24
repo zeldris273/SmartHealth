@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 # Import các hàm validate dùng chung từ tầng core của Lạc
 from app.health.core.security_rules import validate_email_domain, validate_strong_password
@@ -56,6 +56,8 @@ class UserProfileUpdate(BaseModel):
     national_id: str | None = Field(None, min_length=9, max_length=20)
     address: str | None = Field(None, max_length=255)
     fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
+    bmi_reminder_enabled: bool | None = None
+    bmi_reminder_frequency: Literal["daily", "weekly"] | None = None
 
 
 # ==========================================
@@ -77,6 +79,8 @@ class UserResponse(BaseModel):
     height: int | None = None
     fitness_goal: str | None = None
     avatar_url: str | None = None
+    bmi_reminder_enabled: bool = False
+    bmi_reminder_frequency: str = "weekly"
     auth_provider: str = "local"
 
     # Thay class Config cũ bằng model_config chuẩn Pydantic v2 mới nhất
