@@ -3,6 +3,7 @@ import { useAuth } from "../auth/context/AuthContext";
 import api from "../services/api";
 import ChatSidebar from "../components/chatbot/ChatSidebar";
 import ChatArea from "../components/chatbot/ChatArea";
+import RightChatSidebar from "../components/chatbot/RightChatSidebar";
 import { incrementNotificationCount } from "../utils/notificationUtils";
 import html2pdf from "html2pdf.js";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
@@ -100,6 +101,7 @@ const ChatPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [uploadedDocs, setUploadedDocs] = useState([]);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [chatLimit, setChatLimit] = useState({ count: 0, limit: 10, resetAt: null });
@@ -114,9 +116,19 @@ const ChatPage = () => {
     }
   }, [isAuthenticated, user?.id]);
 
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const res = await api.get("/health/documents");
+      setUploadedDocs(res.data || []);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchChatLimit();
-  }, [fetchChatLimit]);
+    fetchDocuments();
+  }, [fetchChatLimit, fetchDocuments]);
 
   const activeConversation = useMemo(() => {
     return (
@@ -249,7 +261,12 @@ const ChatPage = () => {
       });
       uploaded.push(res.data);
     }
+    fetchDocuments();
     return uploaded;
+  };
+
+  const handleSuggestClick = (text) => {
+    handleSend(text);
   };
 
   const handleExportChat = async (format) => {
@@ -567,6 +584,10 @@ const ChatPage = () => {
         activeTitle={activeConversation?.title}
         user={user}
         chatLimit={chatLimit}
+      />
+      <RightChatSidebar 
+        documents={uploadedDocs} 
+        onSuggestClick={handleSuggestClick} 
       />
     </div>
   );
