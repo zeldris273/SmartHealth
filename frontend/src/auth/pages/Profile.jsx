@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Modal from '../../components/common/Modal';
+import PasswordStrength from '../components/PasswordStrength';
 import { 
   User, Mail, Shield, LogOut, HeartPulse, 
-  Settings, Phone, MapPin, Calendar, CreditCard, Key, Activity, Check, X, Camera
+  Settings, Phone, MapPin, Calendar, CreditCard, Key, Activity, Check, X, Camera, Lock
 } from 'lucide-react';
 import api from '../../services/api';
 
 const Profile = () => {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [latestBMI, setLatestBMI] = useState(null);
@@ -28,6 +30,19 @@ const Profile = () => {
     bmi_reminder_enabled: false,
     bmi_reminder_frequency: 'weekly'
   });
+  
+  // Change Password Modal State
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [changePasswordForm, setChangePasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Fetch latest BMI record
   useEffect(() => {
@@ -99,6 +114,63 @@ const Profile = () => {
     setIsSaving(false);
     if (result.success) {
       setIsEditing(false);
+    }
+  };
+
+  // Change Password Handlers
+  const openChangePasswordModal = () => {
+    setChangePasswordForm({
+      current_password: '',
+      new_password: '',
+      confirm_password: ''
+    });
+    setChangePasswordError('');
+    setIsChangePasswordModalOpen(true);
+  };
+
+  const closeChangePasswordModal = () => {
+    setIsChangePasswordModalOpen(false);
+  };
+
+  const handleChangePasswordInput = (e) => {
+    setChangePasswordForm(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+    setChangePasswordError('');
+  };
+
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setChangePasswordError('');
+    
+    // Validation
+    if (!changePasswordForm.current_password) {
+      setChangePasswordError('Vui lòng nhập mật khẩu hiện tại');
+      return;
+    }
+    if (!changePasswordForm.new_password) {
+      setChangePasswordError('Vui lòng nhập mật khẩu mới');
+      return;
+    }
+    if (changePasswordForm.new_password !== changePasswordForm.confirm_password) {
+      setChangePasswordError('Mật khẩu xác nhận không khớp');
+      return;
+    }
+    if (changePasswordForm.new_password.length < 8) {
+      setChangePasswordError('Mật khẩu mới phải có ít nhất 8 ký tự');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    const result = await changePassword({
+      current_password: changePasswordForm.current_password,
+      new_password: changePasswordForm.new_password
+    });
+    setIsChangingPassword(false);
+    
+    if (result.success) {
+      closeChangePasswordModal();
     }
   };
 
@@ -529,17 +601,28 @@ const Profile = () => {
                 </div>
 
                 {/* Security Card */}
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-                    <Key size={20} className="text-red-500" />
-                    Thiết lập Bảo mật
-                  </h3>
-                  <div className="space-y-4">
-                    <Button variant="secondary" className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50">
-                      Đổi mật khẩu
-                    </Button>
-                  </div>
-                </div>
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
+          <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+            <Key size={20} className="text-red-500" />
+            Thiết lập Bảo mật
+          </h3>
+          <div className="space-y-4">
+            <Button 
+              variant="secondary" 
+              className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+              onClick={openChangePasswordModal}
+              disabled={user?.auth_provider === 'google'}
+            >
+              <Lock size={16} className="mr-2" />
+              Đổi mật khẩu
+            </Button>
+            {user?.auth_provider === 'google' && (
+              <p className="text-xs text-slate-500 text-center">
+                Tài khoản Google không thể đổi mật khẩu
+              </p>
+            )}
+          </div>
+        </div>
 
                 {/* Status Card */}
                 <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
@@ -566,6 +649,90 @@ const Profile = () => {
 
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      <Modal 
+        isOpen={isChangePasswordModalOpen} 
+        onClose={closeChangePasswordModal}
+        title="Đổi Mật Khẩu"
+      >
+        <form onSubmit={handleChangePasswordSubmit} className="space-y-5">
+          <div className="text-sm text-slate-600 mb-4">
+            Vui lòng nhập mật khẩu hiện tại và mật khẩu mới của bạn.
+          </div>
+
+          <Input
+            label="Mật khẩu hiện tại"
+            name="current_password"
+            type="password"
+            icon={Lock}
+            value={changePasswordForm.current_password}
+            onChange={handleChangePasswordInput}
+            placeholder="Nhập mật khẩu hiện tại"
+            showToggle={true}
+            showPassword={showCurrentPassword}
+            onTogglePassword={() => setShowCurrentPassword(!showCurrentPassword)}
+          />
+
+          <Input
+            label="Mật khẩu mới"
+            name="new_password"
+            type="password"
+            icon={Lock}
+            value={changePasswordForm.new_password}
+            onChange={handleChangePasswordInput}
+            placeholder="Nhập mật khẩu mới"
+            showToggle={true}
+            showPassword={showNewPassword}
+            onTogglePassword={() => setShowNewPassword(!showNewPassword)}
+          />
+          
+          {changePasswordForm.new_password && (
+            <PasswordStrength password={changePasswordForm.new_password} />
+          )}
+
+          <Input
+            label="Xác nhận mật khẩu mới"
+            name="confirm_password"
+            type="password"
+            icon={Lock}
+            value={changePasswordForm.confirm_password}
+            onChange={handleChangePasswordInput}
+            placeholder="Nhập lại mật khẩu mới"
+            showToggle={true}
+            showPassword={showConfirmPassword}
+            onTogglePassword={() => setShowConfirmPassword(!showConfirmPassword)}
+          />
+
+          {changePasswordError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <p className="text-sm text-red-600">{changePasswordError}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button 
+              variant="secondary" 
+              type="button"
+              className="flex-1"
+              onClick={closeChangePasswordModal}
+              disabled={isChangingPassword}
+            >
+              <X size={16} className="mr-2" />
+              Hủy
+            </Button>
+            <Button 
+              type="submit"
+              className="flex-1"
+              isLoading={isChangingPassword}
+              disabled={isChangingPassword}
+            >
+              <Check size={16} className="mr-2" />
+              Đổi mật khẩu
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

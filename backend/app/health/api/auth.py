@@ -16,6 +16,7 @@ from app.health.schemas.user import (
     VerifyResetOTPRequest,
     ResetPasswordRequest,
     GoogleLoginRequest,
+    ChangePasswordRequest,
 )
 from app.health.services.auth_service import AuthService
 
@@ -226,3 +227,23 @@ def google_login(
         "access_token": data["access_token"],
         "token_type": data["token_type"],
     }
+
+
+@router.post(
+    "/change-password",
+    status_code=status.HTTP_200_OK,
+)
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Đổi mật khẩu khi đã đăng nhập: yêu cầu nhập mật khẩu cũ để xác thực.
+    """
+    return AuthService.change_password(
+        db=db,
+        user=current_user,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+    )

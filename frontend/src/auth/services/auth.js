@@ -68,3 +68,39 @@ export const logoutAPI = async () => {
     throw error.response?.data || new Error('Logout failed');
   }
 };
+
+export const forgotPasswordAPI = async (email) => {
+  try {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to send password reset email');
+  }
+};
+
+export const verifyResetOtpAPI = async ({ email, otp_code }) => {
+  try {
+    const response = await api.post('/auth/verify-reset-otp', { email, otp_code });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to verify OTP');
+  }
+};
+
+export const resetPasswordAPI = async ({ email, otp_code, new_password }) => {
+  try {
+    const response = await api.post('/auth/reset-password', { email, otp_code, new_password });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to reset password');
+  }
+};
+
+export const changePasswordAPI = async ({ current_password, new_password }) => {
+  try {
+    const response = await api.post('/auth/change-password', { current_password, new_password });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to change password');
+  }
+};

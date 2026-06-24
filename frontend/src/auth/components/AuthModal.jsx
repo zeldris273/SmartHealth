@@ -26,7 +26,7 @@ const getPanelClass = (isLoginPanel, mode, isSwapping, slideDir) => {
 };
 
 const AuthModal = () => {
-  const { isAuthModalOpen, closeAuthModal, openAuthModal, authModalType, isAuthenticated } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, openAuthModal, authModalType, isAuthenticated, setAuthModalType } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -35,14 +35,14 @@ const AuthModal = () => {
   const [isSwapping, setIsSwapping] = useState(false);
   const swapTimerRef = useRef(null);
 
-  // Sync mode with authModalType when modal opens
+  // Sync mode with authModalType at all times
   useEffect(() => {
-    if (isAuthModalOpen) {
-      setMode(authModalType);
+    setMode(authModalType);
+    if (!['login', 'register'].includes(authModalType)) {
       setIsSwapping(false);
       setSlideDir(null);
     }
-  }, [isAuthModalOpen, authModalType]);
+  }, [authModalType]);
 
   // Clean up swap timer on unmount
   useEffect(() => {
@@ -82,7 +82,13 @@ const AuthModal = () => {
       closeAuthModal();
     }
   }, [isAuthenticated, isAuthModalOpen, closeAuthModal]);
+
   const isLogin = mode === 'login';
+  const isRegister = mode === 'register';
+  const isForgotPassword = mode === 'forgot-password';
+  const isVerifyResetOtp = mode === 'verify-reset-otp';
+  const isResetPassword = mode === 'reset-password';
+  const isPasswordResetMode = isForgotPassword || isVerifyResetOtp || isResetPassword;
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -94,9 +100,17 @@ const AuthModal = () => {
     (next) => {
       if (next === mode || isSwapping) return;
 
+      // If switching to/from password reset modes, don't use slide animation
+      if (isPasswordResetMode || ['forgot-password', 'verify-reset-otp', 'reset-password'].includes(next)) {
+        setMode(next);
+        setAuthModalType(next);
+        return;
+      }
+
       setSlideDir(next === 'register' ? 'to-register' : 'to-login');
       setIsSwapping(true);
       setMode(next);
+      setAuthModalType(next);
 
       if (swapTimerRef.current) clearTimeout(swapTimerRef.current);
       swapTimerRef.current = setTimeout(() => {
@@ -104,7 +118,7 @@ const AuthModal = () => {
         setSlideDir(null);
       }, 780);
     },
-    [mode, isSwapping]
+    [mode, isSwapping, isPasswordResetMode, setAuthModalType]
   );
 
   if (!isAuthModalOpen) return null;
@@ -137,89 +151,117 @@ const AuthModal = () => {
           </button>
 
           <h1 key={mode} className="auth-glass-title auth-glass-title--swap">
-            {isLogin ? 'Sign In' : 'Sign Up'}
+            {isLogin
+              ? 'Sign In'
+              : isRegister
+                ? 'Sign Up'
+                : isForgotPassword
+                  ? 'Forgot Password'
+                  : isVerifyResetOtp
+                    ? 'Verify OTP'
+                    : 'Reset Password'}
           </h1>
           <p key={`sub-${mode}`} className="auth-glass-subtitle auth-glass-subtitle--swap">
             {isLogin
               ? 'Hello. I am Baymax — your healthcare companion.'
-              : 'Create your SmartHealth account with Baymax.'}
+              : isRegister
+                ? 'Create your SmartHealth account with Baymax.'
+                : isForgotPassword
+                  ? 'Enter your email to receive a password reset OTP.'
+                  : isVerifyResetOtp
+                    ? 'Enter the 6-digit OTP sent to your email.'
+                    : 'Enter your new password below.'}
           </p>
 
-          <div
-            className={[
-              'auth-swap-stage',
-              !isLogin ? 'auth-swap-stage--tall' : '',
-              isSwapping ? 'auth-swap-stage--swapping' : '',
-              slideDir ? `auth-swap-stage--${slideDir}` : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <AuthSwapBurst active={isSwapping} />
-
-            {/* Login panel */}
-            <div
-              className={getPanelClass(true, mode, isSwapping, slideDir)}
-              aria-hidden={mode !== 'login' && !isSwapping}
-            >
-              <div className={`auth-form-inner ${isSwapping && mode === 'login' ? 'auth-form-card--shine' : ''}`}>
-                <AuthForm
-                  mode="login"
-                  onSuccess={() => {
-                    closeAuthModal();
-                    navigate('/profile', { replace: true });
-                  }}
-                  onSwitchMode={() => switchMode('register')}
-                  stagger={mode === 'login' && !isSwapping}
-                  variant="glass"
-                />
+          {isPasswordResetMode ? (
+            // Password reset modes (no slide animation)
+            <div className="auth-swap-stage">
+              <div className="auth-swap-panel auth-swap-panel--active">
+                <div className="auth-form-inner">
+                  <AuthForm
+                    mode={mode}
+                    variant="glass"
+                  />
+                </div>
               </div>
             </div>
-
-            {/* Register panel */}
+          ) : (
+            // Login/register with slide animation
             <div
-              className={getPanelClass(false, mode, isSwapping, slideDir)}
-              aria-hidden={mode !== 'register' && !isSwapping}
+              className={[
+                'auth-swap-stage',
+                !isLogin ? 'auth-swap-stage--tall' : '',
+                isSwapping ? 'auth-swap-stage--swapping' : '',
+                slideDir ? `auth-swap-stage--${slideDir}` : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
-              <div className={`auth-form-inner ${isSwapping && mode === 'register' ? 'auth-form-card--shine' : ''}`}>
-                <AuthForm
-                  mode="register"
-                  onSwitchMode={() => switchMode('login')}
-                  onRegisterSuccess={() => switchMode('login')}
-                  stagger={mode === 'register' && !isSwapping}
-                  variant="glass"
-                />
+              <AuthSwapBurst active={isSwapping} />
+
+              {/* Login panel */}
+              <div
+                className={getPanelClass(true, mode, isSwapping, slideDir)}
+                aria-hidden={mode !== 'login' && !isSwapping}
+              >
+                <div className={`auth-form-inner ${isSwapping && mode === 'login' ? 'auth-form-card--shine' : ''}`}>
+                  <AuthForm
+                    mode="login"
+                    onSuccess={() => {
+                      closeAuthModal();
+                      navigate('/profile', { replace: true });
+                    }}
+                    onSwitchMode={() => switchMode('register')}
+                    stagger={mode === 'login' && !isSwapping}
+                    variant="glass"
+                  />
+                </div>
+              </div>
+
+              {/* Register panel */}
+              <div
+                className={getPanelClass(false, mode, isSwapping, slideDir)}
+                aria-hidden={mode !== 'register' && !isSwapping}
+              >
+                <div className={`auth-form-inner ${isSwapping && mode === 'register' ? 'auth-form-card--shine' : ''}`}>
+                  <AuthForm
+                    mode="register"
+                    onSwitchMode={() => switchMode('login')}
+                    onRegisterSuccess={() => switchMode('login')}
+                    stagger={mode === 'register' && !isSwapping}
+                    variant="glass"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="auth-glass-footer">
-            {isLogin ? (
-              <>
-                <button type="button" className="auth-glass-footer-link">
-                  Forget Password?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode('register')}
-                  className="auth-glass-footer-link auth-glass-footer-link--accent"
-                >
-                  Signup
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-xs text-[#8f2c24]/70">Already registered?</span>
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  className="auth-glass-footer-link auth-glass-footer-link--accent"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </div>
+          {!isPasswordResetMode && (
+            <div className="auth-glass-footer">
+              {isLogin ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('register')}
+                    className="auth-glass-footer-link auth-glass-footer-link--accent"
+                  >
+                    Signup
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-[#8f2c24]/70">Already registered?</span>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="auth-glass-footer-link auth-glass-footer-link--accent"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

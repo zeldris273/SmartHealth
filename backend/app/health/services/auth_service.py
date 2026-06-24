@@ -162,7 +162,8 @@ class AuthService:
     @staticmethod
     def verify_reset_otp(db: Session, email: str, otp_code: str) -> dict:
         # Gọi hàm verify_otp của Lạc để kiểm tra (nếu sai hoặc hết hạn hàm này tự quăng HTTPException rồi)
-        OTPService.verify_otp(db=db, email=email, otp_code=otp_code, purpose="forgot_password")
+        # Không đánh dấu OTP đã dùng ở bước này — chỉ kiểm tra hợp lệ
+        OTPService.verify_otp(db=db, email=email, otp_code=otp_code, purpose="forgot_password", mark_as_used=False)
         
         return {"message": "Xác thực OTP thành công. Vui lòng nhập mật khẩu mới."}
 
@@ -256,4 +257,36 @@ class AuthService:
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer"
+        }
+    
+    @staticmethod
+    def change_password(
+        db: Session,
+        user: User,
+        current_password: str,
+        new_password: str,
+    ) -> dict:
+        """
+        Đổi mật khẩu khi đã đăng nhập:
+        - Xác thực mật khẩu cũ
+        - Kiểm tra xem tài khoản có dùng Google login không (nếu dùng, không cho đổi)
+        - Cập nhật mật khẩu mới
+        """
+        if user.auth_provider == "google":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account uses Google Login. Cannot change password.",
+            )
+        
+        if not verify_password(current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect",
+            )
+        
+        user.password_hash = hash_password(new_password)
+        db.commit()
+        
+        return {
+            "message": "Password changed successfully"
         }
