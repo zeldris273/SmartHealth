@@ -95,3 +95,25 @@ class EmailService:
             print("Login done, sending message...")
             server.send_message(message)
             print("Message sent!")
+
+    @staticmethod
+    def send_bmi_reminder_email(to_email: str, full_name: str, dashboard_url: str) -> None:
+        """Gửi email nhắc nhở người dùng cập nhật BMI."""
+        template = env.get_template("bmi_reminder_email.html")
+        html_content = template.render(
+            full_name=full_name,
+            dashboard_url=dashboard_url
+        )
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = f"[{settings.SMTP_FROM_NAME}] 🌿 Nhắc nhở cập nhật chỉ số BMI"
+        message["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_USER}>"
+        message["To"] = to_email
+        message.attach(MIMEText(html_content, "html", "utf-8"))
+
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(message)

@@ -15,8 +15,7 @@ const ChatBubble = ({ message, isAdminView = false }) => {
     ? [...new Set(message.sources.map(formatSource))]
     : [];
 
-  // In user view: bot/admin are "others" (left), user is "me" (right)
-  // In admin view: admin is "me" (right), user/bot are "others" (left)
+
   const isFromAssistant = isBot || isAdmin;
   const onRight = isAdminView ? isAdmin : !isFromAssistant;
 

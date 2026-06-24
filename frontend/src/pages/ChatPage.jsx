@@ -3,7 +3,11 @@ import { useAuth } from "../auth/context/AuthContext";
 import api from "../services/api";
 import ChatSidebar from "../components/chatbot/ChatSidebar";
 import ChatArea from "../components/chatbot/ChatArea";
+import RightChatSidebar from "../components/chatbot/RightChatSidebar";
 import { incrementNotificationCount } from "../utils/notificationUtils";
+import html2pdf from "html2pdf.js";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { saveAs } from "file-saver";
 
 const STORAGE_PREFIX = "smarthealth_chatbot_conversations";
 const ACTIVE_SESSION_PREFIX = "chat_session_id";
@@ -97,8 +101,34 @@ const ChatPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [uploadedDocs, setUploadedDocs] = useState([]);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
+  const [chatLimit, setChatLimit] = useState({ count: 0, limit: 10, resetAt: null });
+
+  const fetchChatLimit = useCallback(async () => {
+    if (!isAuthenticated || !user?.id) return;
+    try {
+      const res = await api.get("/health/chat/limit");
+      setChatLimit(res.data);
+    } catch (err) {
+      console.error("Error fetching chat limit:", err);
+    }
+  }, [isAuthenticated, user?.id]);
+
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const res = await api.get("/health/documents");
+      setUploadedDocs(res.data || []);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchChatLimit();
+    fetchDocuments();
+  }, [fetchChatLimit, fetchDocuments]);
 
   const activeConversation = useMemo(() => {
     return (
@@ -231,7 +261,92 @@ const ChatPage = () => {
       });
       uploaded.push(res.data);
     }
+    fetchDocuments();
     return uploaded;
+  };
+
+  const handleSuggestClick = (text) => {
+    handleSend(text);
+  };
+
+  const handleExportChat = async (format) => {
+    if (!activeConversation) return;
+
+    const chatMessages = activeConversation.messages.filter(m => m.id !== "welcome");
+    if (chatMessages.length === 0) {
+      alert("Không có nội dung trò chuyện để xuất.");
+      return;
+    }
+
+    const filename = `chat_history_${activeConversation.sessionId}.${format === "pdf" ? "pdf" : "docx"}`;
+    const chatTitle = activeConversation.title || "Lịch sử trò chuyện";
+
+    try {
+      if (format === "pdf") {
+        // Create temporary element for PDF rendering
+        const element = document.createElement("div");
+        element.style.padding = "20px";
+        element.style.fontFamily = "Arial, sans-serif";
+        element.style.lineHeight = "1.6";
+
+        let htmlContent = `<h1 style="text-align: center; color: #333; margin-bottom: 20px;">${chatTitle}</h1>`;
+        
+        chatMessages.forEach((msg) => {
+          const sender = msg.from === "user" ? "Người dùng" : "Baymax";
+          const senderColor = msg.from === "user" ? "#e11d48" : "#4b5563";
+          htmlContent += `
+            <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+              <strong style="color: ${senderColor}">${sender}:</strong> 
+              <span>${msg.text}</span>
+            </div>
+          `;
+        });
+
+        element.innerHTML = htmlContent;
+        document.body.appendChild(element);
+
+        const opt = {
+          margin: [10, 10, 10, 10],
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        await html2pdf().set(opt).from(element).save();
+        document.body.removeChild(element);
+      } else if (format === "docx") {
+        const docChildren = [
+          new Paragraph({
+            text: chatTitle,
+            heading: HeadingLevel.HEADING_1,
+          }),
+          new Paragraph({ text: "" }), // Spacer
+        ];
+
+        chatMessages.forEach((msg) => {
+          const sender = msg.from === "user" ? "Người dùng" : "Baymax";
+          docChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: `${sender}: `, bold: true }),
+                new TextRun(msg.text),
+              ],
+            })
+          );
+        });
+
+        const doc = new Document({
+          sections: [{ children: docChildren }],
+        });
+
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, filename);
+      }
+    } catch (error) {
+      console.error("Export Error:", error);
+      alert("Đã xảy ra lỗi khi xuất file.");
+    }
   };
 
   const handleSend = async (text, files = []) => {
@@ -410,6 +525,7 @@ const ChatPage = () => {
       applyBotUpdate({ isStreaming: false });
 
       incrementNotificationCount(1, user?.id);
+      fetchChatLimit();
     } catch (error) {
       console.error("Chat Error:", error);
       updateConversation(sessionId, (c) => ({
@@ -459,6 +575,7 @@ const ChatPage = () => {
         isLoadingHistory={isLoadingHistory}
         user={user}
         isAuthenticated={isAuthenticated}
+        onExportChat={handleExportChat}
       />
       <ChatArea
         messages={messages}
@@ -466,6 +583,11 @@ const ChatPage = () => {
         onSend={handleSend}
         activeTitle={activeConversation?.title}
         user={user}
+        chatLimit={chatLimit}
+      />
+      <RightChatSidebar 
+        documents={uploadedDocs} 
+        onSuggestClick={handleSuggestClick} 
       />
     </div>
   );

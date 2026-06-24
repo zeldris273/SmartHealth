@@ -369,17 +369,6 @@ const Header = () => {
 
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-rose-600 p-0.5 shadow-sm">
-                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                      {user?.avatar_url ? (
-                        <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                      ) : (
-                        <User size={14} className="text-red-500" />
-                      )}
-                    </div>
-                  </div>
-                </div>
                 <button
                   onClick={() => {
                     logout();

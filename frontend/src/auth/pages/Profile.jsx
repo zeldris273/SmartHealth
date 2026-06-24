@@ -24,7 +24,9 @@ const Profile = () => {
     national_id: '',
     address: '',
     fitness_goal: '',
-    avatar: ''
+    avatar: '',
+    bmi_reminder_enabled: false,
+    bmi_reminder_frequency: 'weekly'
   });
 
   // Fetch latest BMI record
@@ -57,7 +59,9 @@ const Profile = () => {
       national_id: user?.national_id || '',
       address: user?.address || '',
       fitness_goal: user?.fitness_goal || '',
-      avatar: user?.avatar_url || ''
+      avatar: user?.avatar_url || '',
+      bmi_reminder_enabled: user?.bmi_reminder_enabled ?? false,
+      bmi_reminder_frequency: user?.bmi_reminder_frequency || 'weekly'
     });
     setIsEditing(true);
   };
@@ -88,6 +92,8 @@ const Profile = () => {
       national_id: formData.national_id || null,
       address: formData.address || null,
       fitness_goal: formData.fitness_goal || null,
+      bmi_reminder_enabled: formData.bmi_reminder_enabled,
+      bmi_reminder_frequency: formData.bmi_reminder_frequency,
     };
     const result = await updateProfile(payload);
     setIsSaving(false);
@@ -469,6 +475,59 @@ const Profile = () => {
 
               {/* Right Column - Security & Status */}
               <div className="space-y-8">
+                {/* Notification Settings Card */}
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                    <Activity size={20} className="text-red-500" />
+                    Nhắc nhở & Thông báo
+                  </h3>
+                  
+                  {isEditing ? (
+                    <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-slate-800">Nhắc cập nhật BMI</span>
+                          <span className="text-xs text-slate-500">Nhận email nhắc nhở định kỳ</span>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={formData.bmi_reminder_enabled}
+                          onChange={(e) => setFormData(prev => ({ ...prev, bmi_reminder_enabled: e.target.checked }))}
+                          className="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Tần suất thông báo</label>
+                        <select
+                          name="bmi_reminder_frequency"
+                          value={formData.bmi_reminder_frequency}
+                          onChange={handleChange}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100"
+                        >
+                          <option value="daily">Hàng ngày</option>
+                          <option value="weekly">Hàng tuần</option>
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-sm font-medium text-slate-700">Nhắc cập nhật BMI</span>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${user?.bmi_reminder_enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                          {user?.bmi_reminder_enabled ? 'Đã bật' : 'Đang tắt'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-sm font-medium text-slate-700">Tần suất</span>
+                        <span className="text-sm text-slate-600">
+                          {user?.bmi_reminder_frequency === 'daily' ? 'Hàng ngày' : 'Hàng tuần'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Security Card */}
                 <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
                   <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, Integer, String
+from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -65,6 +65,10 @@ class User(Base):
         nullable=False,
         comment="Thời gian hoạt động cuối cùng"
     )
+
+    bmi_reminder_enabled = Column(Boolean, default=False, comment="Bật/tắt nhắc nhở cập nhật BMI")
+    bmi_reminder_frequency = Column(String(20), default="weekly", comment="Tần suất nhắc nhở: daily, weekly")
+    last_notification_sent_at = Column(DateTime(timezone=True), nullable=True, comment="Thời gian gửi thông báo cuối cùng")
 
     # Relationships
     oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Plus,
   Search,
@@ -7,6 +7,8 @@ import {
   MessageSquare,
   MoreHorizontal,
   User,
+  FileDown,
+  Crown,
 } from "lucide-react";
 
 const groupConversations = (conversations) => {
@@ -41,14 +43,28 @@ const ChatSidebar = ({
   isLoadingHistory,
   user,
   isAuthenticated,
+  onExportChat,
 }) => {
   const renameRef = useRef(null);
+  const menuRef = useRef(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   useEffect(() => {
     if (editingSessionId) {
       renameRef.current?.focus();
       renameRef.current?.select();
     }
   }, [editingSessionId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const groups = groupConversations(conversations);
 
@@ -184,9 +200,9 @@ const ChatSidebar = ({
       <div className="flex-shrink-0 border-t border-gray-200 p-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {user?.avatar ? (
+            {(user?.avatar || user?.avatar_url) ? (
               <img
-                src={user.avatar}
+                src={user.avatar || user.avatar_url}
                 alt=""
                 className="w-full h-full object-cover"
               />
@@ -204,12 +220,51 @@ const ChatSidebar = ({
               <div className="text-xs text-gray-400 truncate">{user.email}</div>
             )}
           </div>
-          <button
-            type="button"
-            className="p-1 text-gray-400 hover:text-gray-600"
-          >
-            <MoreHorizontal size={16} />
-          </button>
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-1 text-gray-400 hover:text-gray-600"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+
+            {isMenuOpen && (
+              <div className="absolute right-0 bottom-full mb-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+                <button
+                  onClick={() => {
+                    onExportChat("pdf");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <FileDown size={14} />
+                  <span>Xuất file PDF</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportChat("docx");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <FileDown size={14} />
+                  <span>Xuất file DOCX</span>
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button
+                  onClick={() => {
+                    alert("Tính năng nâng cấp tài khoản đang được phát triển!");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 transition-colors"
+                >
+                  <Crown size={14} />
+                  <span>Nâng cấp tài khoản</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </aside>

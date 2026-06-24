@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from uuid import uuid4
 
 import json
@@ -88,6 +88,17 @@ def get_recent_chat_history(db: Session, user_id: int, session_id: str, limit: i
     ]
 
 
+def get_today_message_count(db: Session, user_id: int) -> int:
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == user_id)
+        .filter(ChatMessage.role == "user")
+        .filter(ChatMessage.created_at >= today_start)
+        .count()
+    )
+
+
 def calculate_age(born: date | None) -> int | None:
     if born is None:
         return None
@@ -103,6 +114,9 @@ def goal_label(goal: str | None) -> str:
         "gain_muscle": "tăng cơ",
     }
     return labels.get(goal or "", goal or "chưa có")
+
+
+DAILY_CHAT_LIMIT = 10
 
 
 def build_health_context(user: User | None, latest_bmi: BMIRecord | None, bmi_history: list[BMIRecord]) -> str:
@@ -316,6 +330,14 @@ async def chat_with_ai(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
+    if current_user:
+        count = get_today_message_count(db, current_user.id)
+        if count >= DAILY_CHAT_LIMIT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Lượt chat hôm nay đã hết, quay lại vào ngày mai nhé! 🔄",
+            )
+
     session_id = request.session_id or uuid4().hex
     bmi = request.bmi
     history = request.history
@@ -382,6 +404,32 @@ async def chat_with_ai(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get(
+    "/chat/limit",
+    summary="Kiểm tra giới hạn lượt chat trong ngày",
+    status_code=status.HTTP_200_OK,
+)
+def get_chat_limit(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cần đăng nhập để kiểm tra giới hạn chat.",
+        )
+    
+    count = get_today_message_count(db, current_user.id)
+    now = datetime.now(timezone.utc)
+    reset_at = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    return {
+        "count": count,
+        "limit": DAILY_CHAT_LIMIT,
+        "reset_at": reset_at
+    }
 
 
 @router.get(
