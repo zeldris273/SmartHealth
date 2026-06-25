@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext, useRef } from 'react';
-import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI } from '../services/auth';
+import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI, forgotPasswordAPI, verifyResetOtpAPI, resetPasswordAPI, changePasswordAPI } from '../services/auth';
 import { toast } from 'react-toastify';
 
 const getSupportWsUrl = () => {
@@ -379,10 +379,71 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (email) => {
+    setIsLoading(true);
+    try {
+      const result = await forgotPasswordAPI(email);
+      toast.success(result.message || 'OTP đã được gửi đến email của bạn!');
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.detail || error.message || 'Failed to send reset email';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyResetOtp = async ({ email, otp_code }) => {
+    setIsLoading(true);
+    try {
+      const result = await verifyResetOtpAPI({ email, otp_code });
+      toast.success(result.message || 'OTP hợp lệ!');
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.detail || error.message || 'Invalid OTP';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPassword = async ({ email, otp_code, new_password }) => {
+    setIsLoading(true);
+    try {
+      const result = await resetPasswordAPI({ email, otp_code, new_password });
+      toast.success(result.message || 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.detail || error.message || 'Failed to reset password';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const changePassword = async ({ current_password, new_password }) => {
+    setIsLoading(true);
+    try {
+      const result = await changePasswordAPI({ current_password, new_password });
+      toast.success(result.message || 'Đổi mật khẩu thành công!');
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.detail || error.message || 'Failed to change password';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, isAuthenticated, isLoading, login, register, logout, updateProfile, refreshProfile, googleLogin,
-      isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType
+      forgotPassword, verifyResetOtp, resetPassword, changePassword,
+      isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType, setAuthModalType
     }}>
       {children}
     </AuthContext.Provider>

@@ -82,6 +82,7 @@ class OTPService:
         email: str,
         otp_code: str,
         purpose: str,
+        mark_as_used: bool = True,
     ) -> bool:
         # Lấy mã OTP mới nhất chưa sử dụng của email này
         otp = (
@@ -109,8 +110,9 @@ class OTPService:
                 detail="Mã OTP đã hết hạn sử dụng.",
             )
 
-        # Hợp lệ -> Đánh dấu đã dùng và lưu lại
-        otp.is_used = True
-        db.commit()
+        # Hợp lệ -> Đánh dấu đã dùng nếu cần
+        if mark_as_used:
+            otp.is_used = True
+            db.commit()
 
         return True

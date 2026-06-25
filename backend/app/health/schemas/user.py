@@ -118,5 +118,16 @@ class ResetPasswordRequest(BaseModel):
         # Ép mật khẩu mới cũng phải thỏa mãn quy tắc bảo mật mạnh của dự án
         return validate_strong_password(v)
 
+class ChangePasswordRequest(BaseModel):
+    """Đổi mật khẩu khi đã đăng nhập (yêu cầu xác thực mật khẩu cũ)"""
+    current_password: str = Field(..., description="Mật khẩu hiện tại")
+    new_password: str = Field(..., min_length=8, max_length=100, description="Mật khẩu mới")
+
+    @field_validator('new_password')
+    @classmethod
+    def check_new_password(cls, v: str) -> str:
+        return validate_strong_password(v)
+
+
 class GoogleLoginRequest(BaseModel):
     token: str
