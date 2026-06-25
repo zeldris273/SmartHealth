@@ -6,13 +6,15 @@ Prefix: /health
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from database import get_db
 from app.health.core.dependencies import get_current_user
 from app.health.models.user import User
+from app.health.models import BMIRecord
 from app.health.schemas import (
     BMICalculateRequest,
     BMICalculateResponse,
@@ -21,8 +23,8 @@ from app.health.schemas import (
     WeightHistoryResponse,
     WeightHistoryItem,
 )
-from app.health.models import BMIRecord
 from app.health.core import process_bmi
+from app.health.core.health_report import generate_health_report
 
 router = APIRouter(prefix="/health", tags=["Health – BMI"])
 
@@ -299,4 +301,75 @@ def get_latest_bmi(
         )
     
     return record
+
+
+# --------------------------------------------------------------------------- #
+#  GET /health/report/pdf  –  Tải xuống báo cáo sức khỏe PDF                  #
+# --------------------------------------------------------------------------- #
+
+@router.get(
+    "/report/pdf",
+    summary="Tải báo cáo sức khỏe PDF",
+    description="Tạo và tải xuống báo cáo sức khỏe cá nhân dạng PDF. Yêu cầu đăng nhập.",
+    status_code=status.HTTP_200_OK,
+)
+def get_health_report_pdf(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate and return health report PDF.
+    """
+    # Get all BMI records
+    all_records = (
+        db.query(BMIRecord)
+        .filter(BMIRecord.user_id == current_user.id)
+        .order_by(BMIRecord.created_at.asc())
+        .all()
+    )
+    
+    latest_bmi = all_records[-1] if all_records else None
+    
+    # Get previous month's record (30 days ago)
+    previous_bmi = None
+    if len(all_records) >= 2:
+        thirty_days_ago = date.today() - timedelta(days=30)
+        # Find the closest record to 30 days ago
+        previous_bmi = None
+        min_diff = None
+        for record in all_records[:-1]:  # exclude latest
+            if record.created_at.date() <= thirty_days_ago:
+                diff = (thirty_days_ago - record.created_at.date()).days
+                if min_diff is None or diff < min_diff:
+                    min_diff = diff
+                    previous_bmi = record
+    
+    # Get last 30 days history
+    bmi_history_30days = []
+    if all_records:
+        thirty_days_ago = date.today() - timedelta(days=30)
+        bmi_history_30days = [
+            r for r in all_records
+            if r.created_at.date() >= thirty_days_ago
+        ]
+    
+    # Generate PDF
+    pdf_buffer = generate_health_report(
+        user=current_user,
+        latest_bmi=latest_bmi,
+        previous_bmi=previous_bmi,
+        bmi_history_30days=bmi_history_30days
+    )
+    
+    # Create filename with today's date
+    filename = f"health_report_{date.today().strftime('%d%m%Y')}.pdf"
+    
+    # Return the PDF as a streaming response
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
 

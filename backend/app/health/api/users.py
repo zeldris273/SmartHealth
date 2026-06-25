@@ -45,12 +45,21 @@ def update_my_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Gọi sang tầng Service xử lý logic kiểm tra trùng lặp SĐT/CCCD và cập nhật
-    return UserService.update_profile(
-        db=db, 
-        current_user=current_user, 
-        payload=payload
-    )
+    try:
+        # Gọi sang tầng Service xử lý logic kiểm tra trùng lặp SĐT/CCCD và cập nhật
+        return UserService.update_profile(
+            db=db, 
+            current_user=current_user, 
+            payload=payload
+        )
+    except Exception as e:
+        print(f"Error updating profile: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating profile: {str(e)}"
+        )
 
 
 # ==========================================

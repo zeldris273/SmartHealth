@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext, useRef } from 'react';
-import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI, forgotPasswordAPI, verifyResetOtpAPI, resetPasswordAPI, changePasswordAPI } from '../services/auth';
+import { loginAPI, registerAPI, getProfileAPI, updateProfileAPI, googleLoginAPI, logoutAPI, forgotPasswordAPI, verifyResetOtpAPI, resetPasswordAPI, changePasswordAPI, downloadHealthReportAPI } from '../services/auth';
 import { toast } from 'react-toastify';
 
 const getSupportWsUrl = () => {
@@ -364,8 +364,12 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     setIsLoading(true);
     try {
+      console.log('Updating profile with data:', profileData);
       const updatedData = await updateProfileAPI(profileData);
+      console.log('Received updated data from backend:', updatedData);
       setUser(updatedData);
+      // Cập nhật localStorage với dữ liệu mới
+      localStorage.setItem('user_profile', JSON.stringify(updatedData));
       
       toast.success('Profile updated successfully!');
       return { success: true, user: updatedData };
@@ -439,10 +443,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const downloadHealthReport = async () => {
+    setIsLoading(true);
+    try {
+      const result = await downloadHealthReportAPI();
+      toast.success('Tải báo cáo sức khỏe thành công!');
+      return result;
+    } catch (error) {
+      const errorMessage = error.detail || error.message || 'Failed to download health report';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, isAuthenticated, isLoading, login, register, logout, updateProfile, refreshProfile, googleLogin,
-      forgotPassword, verifyResetOtp, resetPassword, changePassword,
+      forgotPassword, verifyResetOtp, resetPassword, changePassword, downloadHealthReport,
       isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType, setAuthModalType
     }}>
       {children}

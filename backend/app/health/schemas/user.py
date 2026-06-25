@@ -64,6 +64,7 @@ class UserProfileUpdate(BaseModel):
     activity_level: str | None = None
     other_diseases: str | None = None
     other_allergies: str | None = None
+    avatar_url: str | None = None
 
 
 # ==========================================

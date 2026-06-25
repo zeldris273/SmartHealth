@@ -104,3 +104,32 @@ export const changePasswordAPI = async ({ current_password, new_password }) => {
     throw error.response?.data || new Error('Failed to change password');
   }
 };
+
+export const downloadHealthReportAPI = async () => {
+  try {
+    const response = await api.get('/health/report/pdf', {
+      responseType: 'blob' // Important for binary data
+    });
+    // Create a download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = 'health_report.pdf';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+      }
+    }
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (error) {
+    throw error.response?.data || new Error('Failed to download health report');
+  }
+};
