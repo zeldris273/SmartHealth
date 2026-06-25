@@ -69,7 +69,15 @@ class User(Base):
     bmi_reminder_enabled = Column(Boolean, default=False, comment="Bật/tắt nhắc nhở cập nhật BMI")
     bmi_reminder_frequency = Column(String(20), default="weekly", comment="Tần suất nhắc nhở: daily, weekly")
     last_notification_sent_at = Column(DateTime(timezone=True), nullable=True, comment="Thời gian gửi thông báo cuối cùng")
+    
+    # ---- Tình trạng sức khỏe ----
+    underlying_diseases = Column(String, nullable=True, comment="Danh sách bệnh nền (JSON string)")
+    food_allergies = Column(String, nullable=True, comment="Danh sách dị ứng thực phẩm (JSON string)")
+    activity_level = Column(String(50), nullable=True, comment="Mức độ vận động")
+    other_diseases = Column(String(255), nullable=True, comment="Chi tiết bệnh nền khác")
+    other_allergies = Column(String(255), nullable=True, comment="Chi tiết dị ứng khác")
 
     # Relationships
     oauth_tokens = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")
     support_tickets = relationship("SupportTicket", back_populates="user", cascade="all, delete-orphan")
+    health_tips = relationship("HealthTip", back_populates="user", cascade="all, delete-orphan")

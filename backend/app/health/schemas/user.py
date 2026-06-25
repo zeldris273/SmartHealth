@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Literal, Optional
+import json
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 # Import các hàm validate dùng chung từ tầng core của Lạc
 from app.health.core.security_rules import validate_email_domain, validate_strong_password
@@ -58,6 +59,11 @@ class UserProfileUpdate(BaseModel):
     fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
     bmi_reminder_enabled: bool | None = None
     bmi_reminder_frequency: Literal["daily", "weekly"] | None = None
+    underlying_diseases: list[str] | None = None
+    food_allergies: list[str] | None = None
+    activity_level: str | None = None
+    other_diseases: str | None = None
+    other_allergies: str | None = None
     avatar_url: str | None = None
 
 
@@ -83,6 +89,21 @@ class UserResponse(BaseModel):
     bmi_reminder_enabled: bool = False
     bmi_reminder_frequency: str = "weekly"
     auth_provider: str = "local"
+    underlying_diseases: list[str] | None = None
+    food_allergies: list[str] | None = None
+    activity_level: str | None = None
+    other_diseases: str | None = None
+    other_allergies: str | None = None
+
+    @field_validator('underlying_diseases', 'food_allergies', mode='before')
+    @classmethod
+    def parse_json_list(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v
 
     # Thay class Config cũ bằng model_config chuẩn Pydantic v2 mới nhất
     model_config = ConfigDict(from_attributes=True)

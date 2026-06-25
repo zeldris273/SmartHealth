@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
+from datetime import datetime
 
 
 Goal = Literal["maintain", "lose", "gain"]
@@ -49,3 +50,23 @@ class HealthTipsRequest(BaseModel):
 class HealthTipsResponse(BaseModel):
     weight_trend: WeightTrendAnalysisResponse
     goal_tips: GoalTipsResponse
+
+
+# --------------------------------------------------------------------------- #
+#  Daily Health Tip schemas (New Feature)                                      #
+# --------------------------------------------------------------------------- #
+
+class HealthTipResponse(BaseModel):
+    id: int
+    tip_content: str
+    hashtags: list[str]
+    generated_at: datetime
+    expires_at: datetime
+    refresh_count: int
+
+    class Config:
+        from_attributes = True
+
+class HealthTipRefreshResponse(BaseModel):
+    message: str
+    tip: HealthTipResponse

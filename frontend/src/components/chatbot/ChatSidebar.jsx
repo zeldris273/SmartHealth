@@ -252,16 +252,7 @@ const ChatSidebar = ({
                   <span>Xuất file DOCX</span>
                 </button>
                 <div className="border-t border-gray-100 my-1"></div>
-                <button
-                  onClick={() => {
-                    alert("Tính năng nâng cấp tài khoản đang được phát triển!");
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 transition-colors"
-                >
-                  <Crown size={14} />
-                  <span>Nâng cấp tài khoản</span>
-                </button>
+               
               </div>
             )}
           </div>

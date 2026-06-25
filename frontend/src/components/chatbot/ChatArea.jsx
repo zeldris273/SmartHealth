@@ -9,38 +9,12 @@ const formatFileSize = (size) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const ChatArea = ({ messages, isTyping, onSend, activeTitle, user, chatLimit }) => {
+const ChatArea = ({ messages, isTyping, onSend, activeTitle, user }) => {
   const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
-  const [timeLeft, setTimeLeft] = useState("");
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
-
-  useEffect(() => {
-    if (!chatLimit?.resetAt || chatLimit.count < chatLimit.limit) return;
-
-    const updateCountdown = () => {
-      const now = new Date();
-      const reset = new Date(chatLimit.resetAt);
-      const diff = reset - now;
-
-      if (diff <= 0) {
-        setTimeLeft("Sắp reset!");
-        return;
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft(`${hours} giờ ${minutes} phút ${seconds} giây`);
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [chatLimit]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,8 +64,6 @@ const ChatArea = ({ messages, isTyping, onSend, activeTitle, user, chatLimit }) 
     ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
   };
 
-  const isLimitReached = chatLimit?.count >= chatLimit?.limit;
-
   return (
     <main className="flex flex-col flex-1 h-full overflow-hidden bg-white">
       {/* Header */}
@@ -110,7 +82,12 @@ const ChatArea = ({ messages, isTyping, onSend, activeTitle, user, chatLimit }) 
       </header>
 
       {/* Messages — scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+        <style>{`
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
         <div className="max-w-2xl mx-auto flex flex-col gap-3">
           {messages.map((m) => (
             <ChatBubble key={m.id} message={m} />
@@ -141,21 +118,6 @@ const ChatArea = ({ messages, isTyping, onSend, activeTitle, user, chatLimit }) 
       {/* Input — always at bottom */}
       <div className="flex-shrink-0 border-t border-gray-100 bg-white px-4 py-3">
         <div className="max-w-2xl mx-auto">
-          {chatLimit && (
-            <div className="mb-3 px-1">
-              <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
-                <span>Bạn đã dùng {chatLimit.count}/{chatLimit.limit} tin nhắn hôm nay</span>
-                {isLimitReached && <span className="font-medium text-red-500">{timeLeft}</span>}
-              </div>
-              <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 ${isLimitReached ? 'bg-red-500' : 'bg-red-400'}`} 
-                  style={{ width: `${Math.min((chatLimit.count / chatLimit.limit) * 100, 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
           {files.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
               {files.map((f) => (
@@ -190,7 +152,7 @@ const ChatArea = ({ messages, isTyping, onSend, activeTitle, user, chatLimit }) 
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isTyping || isLimitReached}
+              disabled={isTyping}
               className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 disabled:opacity-40 transition-colors"
               aria-label="Đính kèm file"
             >
@@ -205,16 +167,16 @@ const ChatArea = ({ messages, isTyping, onSend, activeTitle, user, chatLimit }) 
                 autoResize(e);
               }}
               onKeyDown={handleKeyDown}
-              disabled={isTyping || isLimitReached}
+              disabled={isTyping}
               rows={1}
-              placeholder={isLimitReached ? "Lượt chat hôm nay đã hết, quay lại vào ngày mai nhé! 🔄" : "Nhắn tin cho Baymax..."}
+              placeholder="Nhắn tin cho Baymax..."
               className="flex-1 bg-transparent resize-none text-sm text-gray-800 placeholder-gray-400 outline-none leading-5 py-1 max-h-[120px]"
             />
 
             <button
               type="button"
               onClick={handleSend}
-              disabled={isTyping || isLimitReached || (!text.trim() && !files.length)}
+              disabled={isTyping || (!text.trim() && !files.length)}
               aria-label="Gửi"
               className="flex-shrink-0 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-red-600 transition-colors"
             >
