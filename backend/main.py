@@ -31,6 +31,8 @@ from app.health.services.reminder_service import ReminderService
 if engine.dialect.name == "postgresql":
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        # Alter avatar_url column to TEXT type to handle large base64 images
+        connection.execute(text("ALTER TABLE users ALTER COLUMN avatar_url TYPE TEXT"))
 
 Base.metadata.create_all(bind=engine)
 

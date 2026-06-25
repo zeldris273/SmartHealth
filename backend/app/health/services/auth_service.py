@@ -235,7 +235,9 @@ class AuthService:
         else:
             # Cập nhật thông tin nếu user đã tồn tại
             user.google_id = google_id
-            user.avatar_url = avatar_url
+            # Chỉ cập nhật avatar từ Google nếu user chưa có avatar nào
+            if not user.avatar_url:
+                user.avatar_url = avatar_url
             # Chỉ đổi auth_provider nếu user chưa có mật khẩu local
             # Nếu đã có password_hash → cho phép cả 2 phương thức đăng nhập
             if user.password_hash:
