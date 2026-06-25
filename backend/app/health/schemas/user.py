@@ -58,6 +58,7 @@ class UserProfileUpdate(BaseModel):
     fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
     bmi_reminder_enabled: bool | None = None
     bmi_reminder_frequency: Literal["daily", "weekly"] | None = None
+    avatar_url: str | None = None
 
 
 # ==========================================

@@ -14,6 +14,8 @@ class UserService:
     ) -> User:
         # Chỉ lấy các trường thông tin mà Frontend thực sự gửi lên để cập nhật
         data = payload.model_dump(exclude_unset=True)
+        print(f"Received update data: {data}")
+        print(f"Current user avatar before: {current_user.avatar_url}")
 
         # 1. Kiểm tra trùng lặp Số CCCD (National ID) của người khác
         if "national_id" in data and data["national_id"]:
@@ -50,9 +52,11 @@ class UserService:
         # 3. Dynamic Update: Tự động lặp qua các trường hợp lệ để gán giá trị mới
         for field, value in data.items():
             setattr(current_user, field, value)
+            print(f"Set {field} to: {value[:50] if field == 'avatar_url' and value else value}...")
 
         # 4. Lưu lại sự thay đổi vào PostgreSQL
         db.commit()
         db.refresh(current_user)
+        print(f"Current user avatar after: {current_user.avatar_url[:50] if current_user.avatar_url else 'None'}...")
 
         return current_user

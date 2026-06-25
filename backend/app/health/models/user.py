@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean
+from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -39,9 +39,9 @@ class User(Base):
     )
 
     avatar_url = Column(
-        String(500),
+        Text(),
         nullable=True,
-        comment="Link ảnh đại diện của người dùng"
+        comment="Link ảnh đại diện của người dùng (hoặc base64)"
     )
 
     auth_provider = Column(

@@ -11,7 +11,7 @@ import {
 import api from '../../services/api';
 
 const Profile = () => {
-  const { user, logout, updateProfile, changePassword } = useAuth();
+  const { user, logout, updateProfile, changePassword, downloadHealthReport } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [latestBMI, setLatestBMI] = useState(null);
@@ -63,6 +63,11 @@ const Profile = () => {
     }
   }, [user]);
 
+  // Debug: Log formData changes
+  useEffect(() => {
+    console.log('FormData updated:', formData);
+  }, [formData]);
+
   const startEditing = () => {
     setFormData({
       full_name: user?.full_name || '',
@@ -74,7 +79,7 @@ const Profile = () => {
       national_id: user?.national_id || '',
       address: user?.address || '',
       fitness_goal: user?.fitness_goal || '',
-      avatar: user?.avatar_url || '',
+      avatar: user?.avatar_url || null,
       bmi_reminder_enabled: user?.bmi_reminder_enabled ?? false,
       bmi_reminder_frequency: user?.bmi_reminder_frequency || 'weekly'
     });
@@ -86,11 +91,20 @@ const Profile = () => {
   };
 
   const handleAvatarChange = (e) => {
+    console.log('handleAvatarChange triggered');
     const file = e.target.files[0];
+    console.log('Selected file:', file);
+    
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, avatar: reader.result }));
+      reader.onloadend = (event) => {
+        console.log('File loaded, result length:', event.target.result.length);
+        const newAvatar = event.target.result;
+        setFormData(prev => {
+          const updated = { ...prev, avatar: newAvatar };
+          console.log('Updated formData with new avatar:', updated);
+          return updated;
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -98,6 +112,13 @@ const Profile = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
+    
+    console.log('Saving formData:', formData);
+    console.log('formData.avatar:', formData.avatar);
+    console.log('formData.avatar type:', typeof formData.avatar);
+    console.log('formData.avatar length:', formData.avatar ? formData.avatar.length : 0);
+    
+    // Build payload with all fields
     const payload = {
       full_name: formData.full_name,
       phone_number: formData.phone_number || null,
@@ -109,7 +130,14 @@ const Profile = () => {
       fitness_goal: formData.fitness_goal || null,
       bmi_reminder_enabled: formData.bmi_reminder_enabled,
       bmi_reminder_frequency: formData.bmi_reminder_frequency,
+      // Always add avatar_url, even if null
+      avatar_url: formData.avatar,
     };
+    
+    console.log('Final payload to send:', payload);
+    console.log('Payload has avatar_url:', 'avatar_url' in payload);
+    console.log('Payload avatar_url value:', payload.avatar_url);
+    
     const result = await updateProfile(payload);
     setIsSaving(false);
     if (result.success) {
@@ -607,6 +635,14 @@ const Profile = () => {
             Thiết lập Bảo mật
           </h3>
           <div className="space-y-4">
+            <Button 
+              variant="secondary" 
+              className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+              onClick={downloadHealthReport}
+            >
+              <Activity size={16} className="mr-2" />
+              Xuất báo cáo sức khỏe (PDF)
+            </Button>
             <Button 
               variant="secondary" 
               className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
