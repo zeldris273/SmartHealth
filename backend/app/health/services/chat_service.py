@@ -12,6 +12,13 @@ from app.health.core.config import settings
 from app.health.schemas.chat import ChatHistoryItem
 
 OFF_TOPIC_RESPONSE = "Xin lỗi, tôi chỉ hỗ trợ các câu hỏi liên quan đến lĩnh vực y tế và sức khỏe."
+DANGEROUS_RESPONSE = "⚠️ CẢNH BÁO: Tôi không thể trả lời câu hỏi này vì lý do an toàn. Nếu bạn hoặc người thân đang gặp nguy hiểm hoặc có ý định tự làm hại, vui lòng liên hệ ngay với cơ quan y tế gần nhất, gọi cấp cứu (115) hoặc tìm kiếm sự trợ giúp từ chuyên gia tâm lý."
+
+DANGEROUS_KEYWORDS = {
+    "tự tử", "tu tử", "tự sát", "tự làm hại", "muốn chết", "cách chết", "kết thúc cuộc đời",
+    "liều cao", "quá liều", "overdose", "uống thuốc ngủ", "cắt cổ tay", "treo cổ",
+    "phát thuốc độc", "thuốc độc", "liều lượng nguy hiểm",
+}
 
 HEALTH_KEYWORDS = {
     "sức khỏe", "suc khoe", "y tế", "y te", "bệnh", "benh", "triệu chứng", "trieu chung",
@@ -45,6 +52,10 @@ def get_ai_provider() -> str:
 def get_model_name(provider: str) -> str:
     return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
 
+
+def is_dangerous_question(message: str) -> bool:
+    normalized = message.strip().lower()
+    return any(keyword in normalized for keyword in DANGEROUS_KEYWORDS)
 
 def is_health_related(message: str) -> bool:
     normalized = message.strip().lower()
@@ -190,6 +201,10 @@ async def ask_ai_stream(
     health_context: str | None = None,
     retrieved_context: str | None = None,
 ):
+    if is_dangerous_question(message):
+        yield DANGEROUS_RESPONSE
+        return
+
     if not is_health_related_with_context(message, history):
         yield OFF_TOPIC_RESPONSE
         return
@@ -245,6 +260,10 @@ def ask_ai(
     health_context: str | None = None,
     retrieved_context: str | None = None,
 ) -> AIResult:
+    if is_dangerous_question(message):
+        provider = get_ai_provider()
+        return AIResult(reply=DANGEROUS_RESPONSE, provider=provider, model=get_model_name(provider))
+
     if not is_health_related_with_context(message, history):
         provider = get_ai_provider()
         return AIResult(reply=OFF_TOPIC_RESPONSE, provider=provider, model=get_model_name(provider))

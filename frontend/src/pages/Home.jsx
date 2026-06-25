@@ -16,6 +16,7 @@ import {
   Lock,
 } from "lucide-react";
 import BaymaxLogo from "../components/BaymaxLogo";
+import HealthTipWidget from "../components/dashboard/HealthTipWidget";
 import { useAuth } from "../auth/context/AuthContext";
 import api from "../services/api";
 
@@ -597,9 +598,21 @@ const Home = () => {
             </div>
           )}
         </div>
-      </section>
+       </section>
 
-      {/* Cách hoạt động — thay cho 3 feature card từng lặp nội dung với wheel ở hero.
+       {/* Daily Health Tip Section */}
+       {isAuthenticated && (
+         <section
+           className={`px-6 sm:px-8 py-8 max-w-7xl mx-auto transition-all duration-700 delay-400 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+         >
+           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-6">
+             Lời khuyên hôm nay
+           </h2>
+           <HealthTipWidget />
+         </section>
+       )}
+
+       {/* Cách hoạt động — thay cho 3 feature card từng lặp nội dung với wheel ở hero.
           Đây là một quy trình thật nên đánh số có ý nghĩa (01 → 02 → 03). */}
       <section
         className={`px-6 sm:px-8 py-8 max-w-7xl mx-auto pb-16 transition-all duration-700 delay-400 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}

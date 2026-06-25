@@ -28,6 +28,8 @@ import {
   Legend,
 } from "recharts";
 import { Link } from "react-router-dom";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import ChatBubble from "../../components/chatbot/ChatBubble";
@@ -43,6 +45,45 @@ const statusLabels = {
   open: "Mới",
   in_progress: "Đang xử lý",
   closed: "Xong",
+};
+
+const removeAccents = (str) => {
+  if (!str) return "";
+  return str
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+};
+
+const healthStatusLabels = {
+  // Bệnh nền
+  "none_disease": "Không có bệnh nền",
+  "none": "Không",
+  "diabetes": "Tiểu đường",
+  "hypertension": "Cao huyết áp",
+  "heart_disease": "Bệnh tim mạch",
+  "asthma": "Hen suyễn",
+  // Dị ứng
+  "none_allergy": "Không dị ứng",
+  "seafood": "Hải sản",
+  "nuts": "Hạt",
+  "dairy": "Sữa",
+  "egg": "Trứng",
+  // Mức độ vận động
+  "sedentary": "Ít vận động",
+  "lightly_active": "Vận động nhẹ",
+  "moderately_active": "Vận động vừa",
+  "very_active": "Vận động nhiều",
+  "extra_active": "Vận động cường độ cao",
+};
+
+const goalLabels = {
+  "lose_weight": "Giảm cân",
+  "gain_weight": "Tăng cân",
+  "maintain_weight": "Duy trì cân nặng",
+  "gain_muscle": "Tăng cơ"
 };
 
 const isNotificationSupported = () =>
@@ -159,6 +200,126 @@ const AdminDashboard = () => {
       setStatsLoading(false);
     }
   }, []);
+
+  const exportToPDF = () => {
+    try {
+      if (!statsData) {
+        toast.error("Không có dữ liệu để xuất PDF");
+        return;
+      }
+
+      const doc = new jsPDF();
+      
+      // Note: Standard jsPDF fonts don't support Vietnamese Unicode. 
+      // We use removeAccents to ensure the PDF generates successfully and is readable.
+      
+      // Set title
+      doc.setFontSize(18);
+      doc.text(removeAccents("BAO CAO THONG KE SUC KHOE HE THONG"), 14, 20);
+      doc.setFontSize(12);
+      doc.text(removeAccents(`Ngay xuat: ${new Date().toLocaleString("vi-VN")}`), 14, 30);
+
+      let currentY = 40;
+
+      // 1. BMI Distribution
+      doc.text(removeAccents("1. Phan bo BMI"), 14, currentY);
+      const bmiData = [
+        [removeAccents("Thieu can"), statsData.bmi_distribution.underweight],
+        [removeAccents("Binh thuong"), statsData.bmi_distribution.normal],
+        [removeAccents("Thua can"), statsData.bmi_distribution.overweight],
+        [removeAccents("Beo phi"), statsData.bmi_distribution.obese],
+      ];
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [[removeAccents("Phan loai"), removeAccents("So luong")]],
+        body: bmiData,
+        theme: "striped",
+      });
+      currentY = doc.lastAutoTable.finalY + 15;
+
+      // 2. Demographics
+      doc.text(removeAccents("2. Thong ke Nhan khau hoc"), 14, currentY);
+      const genderData = Object.entries(statsData.demographics.gender).map(([k, v]) => [
+        removeAccents(k === 'male' ? 'Nam' : k === 'female' ? 'Nu' : k), 
+        v
+      ]);
+      const ageData = Object.entries(statsData.demographics.age_groups).map(([k, v]) => [k, v]);
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [[removeAccents("Gioi tinh"), removeAccents("So luong")]],
+        body: genderData,
+        theme: "striped",
+        margin: { right: 105 },
+      });
+      
+      const lastY = doc.lastAutoTable.finalY;
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [[removeAccents("Nhom tuoi"), removeAccents("So luong")]],
+        body: ageData,
+        theme: "striped",
+        margin: { left: 105 },
+      });
+      currentY = Math.max(lastY, doc.lastAutoTable.finalY) + 15;
+
+      // 3. Goals
+      doc.text(removeAccents("3. Muc tieu suc khoe pho bien"), 14, currentY);
+      const goalsData = Object.entries(statsData.popular_goals.goals).map(([k, v]) => [
+        removeAccents(goalLabels[k] || k), 
+        v
+      ]);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [[removeAccents("Muc tieu"), removeAccents("So luong")]],
+        body: goalsData,
+        theme: "striped",
+      });
+      currentY = doc.lastAutoTable.finalY + 15;
+
+      // 4. Calorie Averages
+      doc.text(removeAccents("4. TDEE Trung binh"), 14, currentY);
+      const calorieData = Object.entries(statsData.calorie_averages.average_tdee).map(([k, v]) => [
+        removeAccents(k === 'male' ? 'Nam' : k === 'female' ? 'Nu' : k), 
+        v
+      ]);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [[removeAccents("Gioi tinh"), removeAccents("Trung binh (kcal)")]],
+        body: calorieData,
+        theme: "striped",
+      });
+      currentY = doc.lastAutoTable.finalY + 15;
+
+      // 5. Health Conditions
+      doc.text(removeAccents("5. Tinh trang suc khoe chi tiet"), 14, currentY);
+      const healthConditions = statsData.health_conditions;
+      
+      const formatCondPDF = (data) => Object.entries(data)
+        .map(([k, v]) => `${removeAccents(healthStatusLabels[k] || k)} (${v})`)
+        .join(", ");
+
+      const condsData = [
+        [removeAccents("Benh nen"), formatCondPDF(healthConditions.underlying_diseases)],
+        [removeAccents("Di ung"), formatCondPDF(healthConditions.food_allergies)],
+        [removeAccents("Muc do van dong"), formatCondPDF(healthConditions.activity_levels)],
+      ];
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [[removeAccents("Danh muc"), removeAccents("Chi tiet (so luong)")]],
+        body: condsData,
+        theme: "striped",
+      });
+
+      doc.save("thong_ke_suc_khoe.pdf");
+      toast.success("Đã xuất file PDF thành công (không dấu)!");
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      toast.error("Có lỗi xảy ra khi xuất PDF: " + error.message);
+    }
+  };
 
   const handleDeleteDocument = useCallback(async () => {
     if (!documentToDelete) return;
@@ -754,6 +915,17 @@ const AdminDashboard = () => {
 
            {activeItem === "stats" && (
              <div className="flex-1 overflow-y-auto min-h-0 space-y-6 pb-6">
+               <div className="flex items-center justify-between mb-2">
+                 <h3 className="text-lg font-semibold text-slate-900">Chi tiết thống kê</h3>
+                 <button
+                   onClick={exportToPDF}
+                   className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+                 >
+                   <FileText size={16} />
+                   Xuất báo cáo PDF
+                 </button>
+               </div>
+
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                  {/* BMI Distribution Pie Chart */}
                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col">
@@ -810,7 +982,10 @@ const AdminDashboard = () => {
                      ) : (
                        <ResponsiveContainer width="100%" height="100%">
                          <BarChart
-                           data={Object.entries(statsData.popular_goals.goals).map(([name, value]) => ({ name, value }))}
+                           data={Object.entries(statsData.popular_goals.goals).map(([name, value]) => ({ 
+                             name: goalLabels[name] || name, 
+                             value 
+                           }))}
                            layout="vertical"
                            margin={{ left: 20 }}
                          >
@@ -875,18 +1050,85 @@ const AdminDashboard = () => {
                  </div>
                </div>
 
-               {/* Gender Distribution Simple Cards */}
+                 {/* Gender Distribution Simple Cards */}
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                   <h3 className="text-lg font-semibold text-slate-900 mb-4">Phân bố Giới tính</h3>
+                   <div className="flex flex-wrap gap-4">
+                     {statsLoading || !statsData ? (
+                       <div className="py-4 text-gray-400">Đang tải dữ liệu...</div>
+                     ) : (
+                       Object.entries(statsData.demographics.gender).map(([gender, count]) => (
+                         <div key={gender} className="px-6 py-3 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
+                           <span className="capitalize">{gender === 'male' ? 'Nam' : gender === 'female' ? 'Nữ' : (gender === 'other' ? 'Khác' : gender)}:</span> {count} người
+                         </div>
+                       ))
+                     )}
+                   </div>
+                 </div>
+
+               {/* Health Conditions Summary Table */}
                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                 <h3 className="text-lg font-semibold text-slate-900 mb-4">Phân bố Giới tính</h3>
-                 <div className="flex flex-wrap gap-4">
+                 <div className="flex items-center gap-3 mb-6">
+                   <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                     <Activity className="text-red-600" size={20} />
+                   </div>
+                   <h3 className="text-lg font-semibold text-slate-900">Thống kê Tình trạng Sức khỏe Chi tiết</h3>
+                 </div>
+                 <div className="space-y-8">
                    {statsLoading || !statsData ? (
-                     <div className="py-4 text-gray-400">Đang tải dữ liệu...</div>
+                     <div className="py-10 text-center text-gray-400">Đang tải dữ liệu...</div>
                    ) : (
-                     Object.entries(statsData.demographics.gender).map(([gender, count]) => (
-                       <div key={gender} className="px-6 py-3 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
-                         <span className="capitalize">{gender === 'male' ? 'Nam' : gender === 'female' ? 'Nữ' : gender}:</span> {count} người
-                       </div>
-                     ))
+                     <>
+                       {[
+                         { 
+                           title: "Bệnh nền", 
+                           data: statsData.health_conditions.underlying_diseases, 
+                           color: "bg-blue-50 text-blue-700" 
+                         },
+                         { 
+                           title: "Dị ứng", 
+                           data: statsData.health_conditions.food_allergies, 
+                           color: "bg-yellow-50 text-yellow-700" 
+                         },
+                         { 
+                           title: "Mức độ vận động", 
+                           data: statsData.health_conditions.activity_levels, 
+                           color: "bg-green-50 text-green-700" 
+                         },
+                       ].map((section) => (
+                         <div key={section.title} className="flex flex-col">
+                           <h4 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wider">{section.title}</h4>
+                           <div className="overflow-x-auto">
+                             <table className="min-w-full divide-y divide-gray-200">
+                               <thead className="bg-gray-50">
+                                 <tr>
+                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đặc điểm</th>
+                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số lượng</th>
+                                 </tr>
+                               </thead>
+                               <tbody className="bg-white divide-y divide-gray-200">
+                                 {Object.entries(section.data).length > 0 ? (
+                                   Object.entries(section.data).map(([item, count]) => (
+                                     <tr key={item}>
+                                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                         {healthStatusLabels[item] || item}
+                                       </td>
+                                       <td className={`px-4 py-2 whitespace-nowrap text-sm font-bold ${section.color.split(' ')[1]} ${section.color.split(' ')[0]} rounded-full w-20 text-center`}>
+                                         {count}
+                                       </td>
+                                     </tr>
+                                   ))
+                                 ) : (
+                                   <tr>
+                                     <td colSpan="2" className="px-4 py-2 text-sm text-gray-400 text-center italic">Không có dữ liệu</td>
+                                   </tr>
+                                 )}
+                               </tbody>
+                             </table>
+                           </div>
+                         </div>
+                       ))}
+                     </>
                    )}
                  </div>
                </div>

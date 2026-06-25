@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import Dict
+import json
 
 from database import get_db
 from app.health.core.dependencies import require_role
 from app.health.models.user import User
-from app.health.schemas.stats import CommunityHealthStats, BMIStats, DistributionStats, GoalStats, CalorieStats
+from app.health.schemas.stats import CommunityHealthStats, BMIStats, DistributionStats, GoalStats, CalorieStats, HealthConditionsStats
 from app.health.core.calories_calculator import calculate_bmr
 
 router = APIRouter(
@@ -52,6 +53,10 @@ def get_community_health_stats(db: Session = Depends(get_db)):
     # Calorie TDEE averages
     tdee_sums = {"male": 0.0, "female": 0.0}
     tdee_counts = {"male": 0, "female": 0}
+    # Health Conditions
+    disease_counts = {}
+    allergy_counts = {}
+    activity_counts = {}
 
     for user in users:
         # Gender
@@ -67,6 +72,32 @@ def get_community_health_stats(db: Session = Depends(get_db)):
         if user.fitness_goal:
             goal_counts[user.fitness_goal] = goal_counts.get(user.fitness_goal, 0) + 1
             
+        # Health Conditions (Diseases, Allergies, Activity)
+        if user.underlying_diseases:
+            try:
+                diseases = json.loads(user.underlying_diseases)
+                if isinstance(diseases, list):
+                    for d in diseases:
+                        disease_counts[d] = disease_counts.get(d, 0) + 1
+                else:
+                    disease_counts[user.underlying_diseases] = disease_counts.get(user.underlying_diseases, 0) + 1
+            except json.JSONDecodeError:
+                disease_counts[user.underlying_diseases] = disease_counts.get(user.underlying_diseases, 0) + 1
+
+        if user.food_allergies:
+            try:
+                allergies = json.loads(user.food_allergies)
+                if isinstance(allergies, list):
+                    for a in allergies:
+                        allergy_counts[a] = allergy_counts.get(a, 0) + 1
+                else:
+                    allergy_counts[user.food_allergies] = allergy_counts.get(user.food_allergies, 0) + 1
+            except json.JSONDecodeError:
+                allergy_counts[user.food_allergies] = allergy_counts.get(user.food_allergies, 0) + 1
+
+        if user.activity_level:
+            activity_counts[user.activity_level] = activity_counts.get(user.activity_level, 0) + 1
+
         # BMI & Calories
         if user.weight and user.height and user.age and user.gender in ["male", "female"]:
             # BMI
@@ -98,5 +129,10 @@ def get_community_health_stats(db: Session = Depends(get_db)):
             age_groups=age_group_counts
         ),
         popular_goals=GoalStats(goals=goal_counts),
-        calorie_averages=CalorieStats(average_tdee=avg_tdee)
+        calorie_averages=CalorieStats(average_tdee=avg_tdee),
+        health_conditions=HealthConditionsStats(
+            underlying_diseases=disease_counts,
+            food_allergies=allergy_counts,
+            activity_levels=activity_counts
+        )
     )

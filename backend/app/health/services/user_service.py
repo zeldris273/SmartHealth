@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+import json
 
 from app.health.models.user import User
 from app.health.schemas.user import UserProfileUpdate
@@ -49,6 +50,8 @@ class UserService:
 
         # 3. Dynamic Update: Tự động lặp qua các trường hợp lệ để gán giá trị mới
         for field, value in data.items():
+            if field in ["underlying_diseases", "food_allergies"] and isinstance(value, list):
+                value = json.dumps(value)
             setattr(current_user, field, value)
 
         # 4. Lưu lại sự thay đổi vào PostgreSQL
