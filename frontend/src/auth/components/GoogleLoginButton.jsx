@@ -1,9 +1,9 @@
 // src/auth/components/GoogleLoginButton.jsx
 
-import { useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
 
-const GSI_INIT_KEY = '__smarthealth_google_signin_initialized';
+const GSI_INIT_KEY = "__smarthealth_google_signin_initialized";
 
 /**
  * GoogleLoginButton
@@ -11,19 +11,22 @@ const GSI_INIT_KEY = '__smarthealth_google_signin_initialized';
  * Renders a Google Sign‑In button using the Google Identity Services library.
  * The library script is already included in `index.html`.
  */
-const GoogleLoginButton = ({ onSuccess, variant = 'baymax' }) => {
+const GoogleLoginButton = ({ onSuccess, variant = "baymax" }) => {
   const { googleLogin, closeAuthModal } = useAuth();
   const buttonRef = useRef(null);
 
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+
   useEffect(() => {
-    if (!window.google?.accounts?.id) {
-      console.warn('Google Identity Services library not loaded.');
+    if (!clientId) {
+      console.warn(
+        "VITE_GOOGLE_CLIENT_ID is not configured. Google login disabled.",
+      );
       return;
     }
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
-    if (!clientId) {
-      console.error('VITE_GOOGLE_CLIENT_ID is not defined in environment.');
+    if (!window.google?.accounts?.id) {
+      console.warn("Google Identity Services library not loaded.");
       return;
     }
 
@@ -34,7 +37,7 @@ const GoogleLoginButton = ({ onSuccess, variant = 'baymax' }) => {
         callback: async (response) => {
           const credential = response?.credential?.trim();
           if (!credential) {
-            console.error('Google Sign-In did not return a credential.');
+            console.error("Google Sign-In did not return a credential.");
             return;
           }
           try {
@@ -59,14 +62,14 @@ const GoogleLoginButton = ({ onSuccess, variant = 'baymax' }) => {
         setTimeout(renderGoogleButton, 50);
         return;
       }
-      
-      container.innerHTML = '';
+
+      container.innerHTML = "";
       window.google.accounts.id.renderButton(container, {
-        theme: 'outline',
-        size: 'large',
-        locale: 'vi',
+        theme: "outline",
+        size: "large",
+        locale: "vi",
         width: width,
-        shape: variant === 'baymax' ? 'pill' : 'rectangular',
+        shape: variant === "baymax" ? "pill" : "rectangular",
       });
     };
 
@@ -74,10 +77,18 @@ const GoogleLoginButton = ({ onSuccess, variant = 'baymax' }) => {
   }, [googleLogin, closeAuthModal, onSuccess, variant]);
 
   return (
-    <div
-      ref={buttonRef}
-      className={`w-full ${variant === 'glass' ? 'auth-glass-field' : ''}`}
-    />
+    <>
+      {clientId ? (
+        <div
+          ref={buttonRef}
+          className={`w-full ${variant === "glass" ? "auth-glass-field" : ""}`}
+        />
+      ) : (
+        <p className="text-sm text-gray-500 text-center py-2">
+          Google login not configured
+        </p>
+      )}
+    </>
   );
 };
 
