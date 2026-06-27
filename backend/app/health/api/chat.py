@@ -130,6 +130,8 @@ def build_health_context(user: User | None, latest_bmi: BMIRecord | None, bmi_hi
         f"Giới tính: {gender or 'chưa có'}",
         f"Chiều cao: {height if height else 'chưa có'} cm",
         f"Cân nặng: {weight if weight else 'chưa có'} kg",
+        f"Vòng cổ tay: {user.wrist_circumference if user.wrist_circumference else 'chưa có'} cm",
+        f"Vòng cổ chân: {user.ankle_circumference if user.ankle_circumference else 'chưa có'} cm",
         f"Mục tiêu: {goal_label(user.fitness_goal)}",
         f"Mức độ vận động: {user.activity_level or 'chưa có'}",
         f"Bệnh nền: {user.underlying_diseases or 'không có'}",

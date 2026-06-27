@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, Text
+from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, Text, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -71,6 +71,8 @@ class User(Base):
     last_notification_sent_at = Column(DateTime(timezone=True), nullable=True, comment="Thời gian gửi thông báo cuối cùng")
     
     # ---- Tình trạng sức khỏe ----
+    wrist_circumference = Column(Float, nullable=True, comment="Vòng cổ tay (cm)")
+    ankle_circumference = Column(Float, nullable=True, comment="Vòng cổ chân (cm)")
     underlying_diseases = Column(String, nullable=True, comment="Danh sách bệnh nền (JSON string)")
     food_allergies = Column(String, nullable=True, comment="Danh sách dị ứng thực phẩm (JSON string)")
     activity_level = Column(String(50), nullable=True, comment="Mức độ vận động")

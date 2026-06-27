@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -11,6 +12,7 @@ import {
 import api from '../../services/api';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { user, logout, updateProfile, changePassword, downloadHealthReport } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,6 +35,9 @@ const Profile = () => {
     food_allergies: [],
     activity_level: '',
     other_diseases: '',
+    other_allergies: '',
+    wrist_circumference: '',
+    ankle_circumference: ''
     other_allergies: ''
   });
   
@@ -91,6 +96,9 @@ const Profile = () => {
       food_allergies: user?.food_allergies || [],
       activity_level: user?.activity_level || '',
       other_diseases: user?.other_diseases || '',
+      other_allergies: user?.other_allergies || '',
+      wrist_circumference: user?.wrist_circumference || '',
+      ankle_circumference: user?.ankle_circumference || ''
       other_allergies: user?.other_allergies || ''
     });
     setIsEditing(true);
@@ -145,6 +153,8 @@ const Profile = () => {
       activity_level: formData.activity_level,
       other_diseases: formData.other_diseases,
       other_allergies: formData.other_allergies,
+      wrist_circumference: formData.wrist_circumference ? parseFloat(formData.wrist_circumference) : null,
+      ankle_circumference: formData.ankle_circumference ? parseFloat(formData.ankle_circumference) : null,
       // Always add avatar_url, even if null
       avatar_url: formData.avatar,
     };
@@ -288,22 +298,32 @@ const Profile = () => {
                 </p>
               </div>
             </div>
-            <div className="flex gap-3 w-full sm:w-auto">
-              {!isEditing && (
-                <Button className="flex-1 sm:flex-none" onClick={startEditing}>
-                  <Settings size={18} className="mr-2" />
-                  Chỉnh sửa Hồ sơ
-                </Button>
-              )}
-              <Button 
-                variant="secondary" 
-                onClick={logout}
-                className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
-              >
-                <LogOut size={18} className="mr-2" />
-                Đăng xuất
-              </Button>
-            </div>
+                <div className="flex flex-wrap gap-3 w-full sm:w-auto items-center justify-end">
+                  {!isEditing && (
+                    <Button className="flex-1 sm:flex-none" onClick={startEditing}>
+                      <Settings size={18} className="mr-2" />
+                      Chỉnh sửa Hồ sơ
+                    </Button>
+                  )}
+                  <Button 
+                    variant="secondary" 
+                    onClick={logout}
+                    className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
+                  >
+                    <LogOut size={18} className="mr-2" />
+                    Đăng xuất
+                  </Button>
+                  {!isEditing && (
+                    <Button 
+                      variant="secondary" 
+                      className="flex-1 sm:flex-none justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                      onClick={downloadHealthReport}
+                    >
+                      <Activity size={16} className="mr-2" />
+                      Xuất báo cáo sức khỏe (PDF)
+                    </Button>
+                  )}
+                </div>
           </div>
 
           {/* Body */}
@@ -496,6 +516,23 @@ const Profile = () => {
                         </select>
                       </div>
 
+                       <div className="sm:col-span-2 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-center space-y-3">
+                         <p className="text-sm text-blue-700 font-medium">
+                           Muốn thay đổi BMI?
+                         </p>
+                         <div className="flex justify-center">
+                          <Button 
+                           variant="secondary" 
+                           className="w-full sm:w-auto text-xs py-2 h-auto"
+                           onClick={() => navigate('/dashboard')}
+                         >
+                           <Settings size={14} className="mr-1" />
+                           Đến Bảng điều khiển
+                         </Button>
+                         </div>
+                         
+                       </div>
+
                       {/* Tình trạng sức khỏe */}
                       <div className="sm:col-span-2 space-y-6 pt-4 border-t border-slate-100">
                         <div className="space-y-3">
@@ -676,6 +713,19 @@ const Profile = () => {
                             {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Chưa có dữ liệu BMI</p>}
                           </>
                         )}
+                        {isEditing && (
+                          <div className="mt-4 p-3 bg-red-50 rounded-xl border border-red-100 text-center">
+                            <p className="text-xs text-red-600 font-medium mb-2">Muốn thay đổi chỉ số BMI?</p>
+                            <Button 
+                              variant="secondary" 
+                              className="w-full text-xs py-1.5 h-auto"
+                              onClick={() => navigate('/dashboard')}
+                            >
+                              <Settings size={14} className="mr-1" />
+                              Đến Bảng điều khiển
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Giới tính */}
@@ -714,6 +764,22 @@ const Profile = () => {
                             : user?.fitness_goal === 'gain_muscle' ? '💪 Tăng cơ bắp'
                             : 'Chưa cung cấp'}
                         </p>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vòng cổ tay</p>
+                        <p className={`text-2xl font-bold ${latestBMI?.wrist_circumference_cm ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {latestBMI?.wrist_circumference_cm ? latestBMI.wrist_circumference_cm : '—'}
+                        </p>
+                        {latestBMI?.wrist_circumference_cm && <p className="text-xs text-slate-500 mt-1">cm</p>}
+                      </div>
+
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vòng cổ chân</p>
+                        <p className={`text-2xl font-bold ${latestBMI?.ankle_circumference_cm ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {latestBMI?.ankle_circumference_cm ? latestBMI.ankle_circumference_cm : '—'}
+                        </p>
+                        {latestBMI?.ankle_circumference_cm && <p className="text-xs text-slate-500 mt-1">cm</p>}
                       </div>
 
                       {/* Tình trạng sức khỏe */}
@@ -834,26 +900,18 @@ const Profile = () => {
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
           <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
             <Key size={20} className="text-red-500" />
-            Thiết lập Bảo mật
+            Thiết lập bảo mật
           </h3>
-          <div className="space-y-4">
-            <Button 
-              variant="secondary" 
-              className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
-              onClick={downloadHealthReport}
-            >
-              <Activity size={16} className="mr-2" />
-              Xuất báo cáo sức khỏe (PDF)
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
-              onClick={openChangePasswordModal}
-              disabled={user?.auth_provider === 'google'}
-            >
-              <Lock size={16} className="mr-2" />
-              Đổi mật khẩu
-            </Button>
+            <div className="space-y-4">
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                onClick={openChangePasswordModal}
+                disabled={user?.auth_provider === 'google'}
+              >
+                <Lock size={16} className="mr-2" />
+                Đổi mật khẩu
+              </Button>
             {user?.auth_provider === 'google' && (
               <p className="text-xs text-slate-500 text-center">
                 Tài khoản Google không thể đổi mật khẩu

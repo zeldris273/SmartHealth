@@ -305,6 +305,21 @@ async def send_message_to_ticket(
 # ADMIN ENDPOINTS (cho quản trị viên)
 # ================================
 
+@router.get("/admin/unread-count", response_model=int)
+def get_unread_count(
+    current_user: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """Lấy số lượng ticket cần xử lý (không tính đã đóng)."""
+    # Vì hệ thống hiện tại có tin nhắn tự động (bot) trả lời, 
+    # việc kiểm tra tin nhắn cuối cùng từ user sẽ bị sai.
+    # Giải pháp: Đếm tất cả các ticket đang ở trạng thái 'open' hoặc 'in_progress'.
+    count = db.query(SupportTicket).filter(
+        SupportTicket.status.in_(["open", "in_progress"])
+    ).count()
+    return count
+
+
 @router.get("/admin/tickets", response_model=List[SupportTicketResponse])
 def get_all_tickets(
     current_user: User = Depends(require_role("admin")),

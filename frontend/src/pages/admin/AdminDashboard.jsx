@@ -528,11 +528,12 @@ const AdminDashboard = () => {
   const activeTicketsCount = tickets.filter(
     (ticket) => ticket.status !== "closed",
   ).length;
-  const filteredTickets = tickets.filter((ticket) =>
-    ticketFilter === "all"
-      ? ticket.status !== "closed"
-      : ticket.status === ticketFilter,
-  );
+  const filteredTickets = tickets.filter((ticket) => {
+    if (ticketFilter === "all") {
+      return true;
+    }
+    return ticket.status === ticketFilter;
+  });
   const filteredDocuments = documents.filter((doc) => {
     if (documentFilter === "active") return !doc.is_deleted;
     if (documentFilter === "deleted") return doc.is_deleted;
@@ -772,7 +773,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto scrollbar-none">
                   {loading ? (
                     <div className="p-6 text-center text-gray-500">
                       Đang tải...
