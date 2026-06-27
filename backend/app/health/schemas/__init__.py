@@ -23,6 +23,8 @@ from .health_tips import (
     FoodRecommendationsResponse,
     ExercisePlanResponse,
     GoalTipsResponse,
+    HealthTipResponse,
+    HealthTipRefreshResponse,
 )
 
 __all__ = [
@@ -44,4 +46,6 @@ __all__ = [
     "FoodRecommendationsResponse",
     "ExercisePlanResponse",
     "GoalTipsResponse",
+    "HealthTipResponse",
+    "HealthTipRefreshResponse",
 ]

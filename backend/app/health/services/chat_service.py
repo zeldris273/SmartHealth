@@ -12,6 +12,13 @@ from app.health.core.config import settings
 from app.health.schemas.chat import ChatHistoryItem
 
 OFF_TOPIC_RESPONSE = "Xin lỗi, tôi chỉ hỗ trợ các câu hỏi liên quan đến lĩnh vực y tế và sức khỏe."
+DANGEROUS_RESPONSE = "⚠️ CẢNH BÁO: Tôi không thể trả lời câu hỏi này vì lý do an toàn. Nếu bạn hoặc người thân đang gặp nguy hiểm hoặc có ý định tự làm hại, vui lòng liên hệ ngay với cơ quan y tế gần nhất, gọi cấp cứu (115) hoặc tìm kiếm sự trợ giúp từ chuyên gia tâm lý."
+
+DANGEROUS_KEYWORDS = {
+    "tự tử", "tu tử", "tự sát", "tự làm hại", "muốn chết", "cách chết", "kết thúc cuộc đời",
+    "liều cao", "quá liều", "overdose", "uống thuốc ngủ", "cắt cổ tay", "treo cổ",
+    "phát thuốc độc", "thuốc độc", "liều lượng nguy hiểm",
+}
 
 HEALTH_KEYWORDS = {
     "sức khỏe", "suc khoe", "y tế", "y te", "bệnh", "benh", "triệu chứng", "trieu chung",
@@ -46,17 +53,21 @@ def get_model_name(provider: str) -> str:
     return getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini") or "gpt-4.1-mini"
 
 
+def is_dangerous_question(message: str) -> bool:
+    normalized = message.strip().lower()
+    return any(keyword in normalized for keyword in DANGEROUS_KEYWORDS)
+
 def is_health_related(message: str) -> bool:
     normalized = message.strip().lower()
     return any(keyword in normalized for keyword in HEALTH_KEYWORDS)
 
 
 def is_health_related_with_context(message: str, history: list[ChatHistoryItem] | None = None) -> bool:
-    if is_health_related(message):
+    if is_health_related(message) or is_document_query(message):
         return True
 
     history = history or []
-    return any(is_health_related(item.content) for item in history[-6:])
+    return any(is_health_related(item.content) or is_document_query(item.content) for item in history[-6:])
 
 
 DOCUMENT_QUERY_KEYWORDS = {
@@ -125,14 +136,16 @@ def build_prompt(
 Bạn là chatbot hỗ trợ sức khỏe cho hệ thống SmartHealth.
 
 Nguyên tắc bắt buộc:
-- Chỉ trả lời câu hỏi liên quan đến sức khỏe, y tế, BMI, cân nặng, calories, dinh dưỡng, luyện tập và lối sống lành mạnh.
-- Nếu câu hỏi nằm ngoài lĩnh vực y tế/sức khỏe, chỉ trả lời đúng câu: "{OFF_TOPIC_RESPONSE}"
+- Chỉ trả lời câu hỏi liên quan đến sức khỏe, y tế, BMI, cân nặng, calories, dinh dưỡng, luyện tập và lối sống lành mạnh, hoặc các câu hỏi liên quan đến việc quản lý/truy vấn tài liệu sức khỏe đã tải lên.
+- Nếu người dùng thông báo đã tải lên file hoặc yêu cầu tiếp nhận file, hãy phản hồi xác nhận đã nhận được file và sẵn sàng hỗ trợ phân tích nội dung đó.
+- Nếu người dùng yêu cầu kiểm tra file .docx, hãy đối chiếu nội dung trong "Ngữ cảnh tài liệu truy xuất" để xác nhận thông tin có chính xác và phù hợp với lĩnh vực y tế hay không.
+- Nếu câu hỏi hoàn toàn nằm ngoài lĩnh vực y tế/sức khỏe và không liên quan đến tài liệu, chỉ trả lời đúng câu: "{OFF_TOPIC_RESPONSE}"
 - Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thực tế.
 - Không chẩn đoán chắc chắn bệnh.
 - Không kê đơn thuốc, không chỉ định liều thuốc nguy hiểm.
 - Với triệu chứng nặng như khó thở, đau ngực, ngất, chảy máu nhiều, sốt cao kéo dài, hãy khuyên người dùng đi khám/cấp cứu.
 - Ưu tiên sử dụng ngữ cảnh tài liệu được truy xuất nếu phù hợp, nhưng không bịa nguồn hoặc nội dung không có trong tài liệu.
-- Luôn kết hợp câu hỏi hiện tại với hồ sơ sức khỏe cá nhân khi có dữ liệu.
+- Luôn kết hợp câu hỏi hiện tại với hồ sơ sức khỏe cá nhân khi có dữ liệu (bao gồm cả các chỉ số vòng cổ tay, cổ chân nếu có).
 
 Thông tin sức khỏe cá nhân:
 {health_context}
@@ -190,6 +203,10 @@ async def ask_ai_stream(
     health_context: str | None = None,
     retrieved_context: str | None = None,
 ):
+    if is_dangerous_question(message):
+        yield DANGEROUS_RESPONSE
+        return
+
     if not is_health_related_with_context(message, history):
         yield OFF_TOPIC_RESPONSE
         return
@@ -245,6 +262,10 @@ def ask_ai(
     health_context: str | None = None,
     retrieved_context: str | None = None,
 ) -> AIResult:
+    if is_dangerous_question(message):
+        provider = get_ai_provider()
+        return AIResult(reply=DANGEROUS_RESPONSE, provider=provider, model=get_model_name(provider))
+
     if not is_health_related_with_context(message, history):
         provider = get_ai_provider()
         return AIResult(reply=OFF_TOPIC_RESPONSE, provider=provider, model=get_model_name(provider))

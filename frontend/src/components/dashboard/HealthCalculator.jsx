@@ -5,7 +5,7 @@ import { useAuth } from '../../auth/context/AuthContext';
 import { toast } from 'react-toastify';
 
 const HealthCalculator = ({ onSave }) => {
-  const { isAuthenticated, isLoading: authLoading, openAuthModal } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, openAuthModal, updateProfile } = useAuth();
   
   // Shared fields
   const [weight, setWeight] = useState('');
@@ -60,10 +60,23 @@ const HealthCalculator = ({ onSave }) => {
         ankle_circumference_cm: ankleCircumference ? parseFloat(ankleCircumference) : null,
       };
       
-      if (saveHistory && isAuthenticated) {
-        response = await api.post('/health/bmi/save', payload);
-        if (onSave) onSave();
-      } else {
+       if (saveHistory && isAuthenticated) {
+         // Lưu vào lịch sử sức khỏe
+         response = await api.post('/health/bmi/save', payload);
+         
+          // Cập nhật đồng thời vào profile người dùng
+          await updateProfile({
+            weight: w,
+            height: h,
+            age: age ? parseInt(age) : null,
+            gender: gender,
+            activity_level: activityLevel,
+            wrist_circumference: wristCircumference ? parseFloat(wristCircumference) : null,
+            ankle_circumference: ankleCircumference ? parseFloat(ankleCircumference) : null,
+          });
+         
+         if (onSave) onSave();
+       } else {
         response = await api.post('/health/bmi', payload);
       }
 
@@ -100,18 +113,31 @@ const HealthCalculator = ({ onSave }) => {
 
     try {
       // Nếu tích checkbox lưu lịch sử, thì tính BMI và lưu lịch sử trước
-      if (saveHistory && isAuthenticated) {
-        const bmiPayload = {
-          weight_kg: w,
-          height_cm: h,
-          age: a,
-          gender: gender,
-          wrist_circumference_cm: wristCircumference ? parseFloat(wristCircumference) : null,
-          ankle_circumference_cm: ankleCircumference ? parseFloat(ankleCircumference) : null,
-        };
-        await api.post('/health/bmi/save', bmiPayload);
-        if (onSave) onSave();
-      }
+       if (saveHistory && isAuthenticated) {
+         const bmiPayload = {
+           weight_kg: w,
+           height_cm: h,
+           age: a,
+           gender: gender,
+           wrist_circumference_cm: wristCircumference ? parseFloat(wristCircumference) : null,
+           ankle_circumference_cm: ankleCircumference ? parseFloat(ankleCircumference) : null,
+         };
+         // Lưu vào lịch sử sức khỏe
+         await api.post('/health/bmi/save', bmiPayload);
+         
+          // Cập nhật vào profile người dùng
+          await updateProfile({
+            weight: w,
+            height: h,
+            age: a,
+            gender: gender,
+            activity_level: activityLevel,
+            wrist_circumference: wristCircumference ? parseFloat(wristCircumference) : null,
+            ankle_circumference: ankleCircumference ? parseFloat(ankleCircumference) : null,
+          });
+         
+         if (onSave) onSave();
+       }
 
       // Sau đó tính Calories
       const response = await api.post('/health/calories', {

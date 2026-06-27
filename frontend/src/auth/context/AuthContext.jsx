@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdminOnline, setIsAdminOnline] = useState(false);
 
   // Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -189,11 +190,14 @@ export const AuthProvider = ({ children }) => {
 
       wsRef.current.onopen = () => {
         console.log('Admin: WebSocket connected');
+        setIsAdminOnline(true);
       };
 
       wsRef.current.onmessage = (event) => {
         const payload = JSON.parse(event.data);
-        if (['ticket_created', 'message_created'].includes(payload.type)) {
+        if (payload.type === 'admin_status') {
+          setIsAdminOnline(payload.is_admin_online);
+        } else if (['ticket_created', 'message_created'].includes(payload.type)) {
           console.log('Admin: Received new notification via WebSocket');
           window.dispatchEvent(new CustomEvent('notification:new', { detail: { count: 1 } }));
         }
@@ -205,6 +209,7 @@ export const AuthProvider = ({ children }) => {
 
       wsRef.current.onclose = () => {
         console.log('Admin: WebSocket disconnected');
+        setIsAdminOnline(false);
         if (shouldReconnect) {
           reconnectTimerRef.current = setTimeout(connect, 3000);
         }
@@ -458,15 +463,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ 
-      user, isAuthenticated, isLoading, login, register, logout, updateProfile, refreshProfile, googleLogin,
-      forgotPassword, verifyResetOtp, resetPassword, changePassword, downloadHealthReport,
-      isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType, setAuthModalType
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+      <AuthContext.Provider value={{ 
+        user, isAuthenticated, isLoading, isAdminOnline, login, register, logout, updateProfile, refreshProfile, googleLogin,
+        forgotPassword, verifyResetOtp, resetPassword, changePassword, downloadHealthReport,
+        isAuthModalOpen, authModalType, openAuthModal, closeAuthModal, toggleAuthModalType, setAuthModalType
+      }}>
+        {children}
+      </AuthContext.Provider>
+    );
 };
 
 // eslint-disable-next-line react-refresh/only-export-components

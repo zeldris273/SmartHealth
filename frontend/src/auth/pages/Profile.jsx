@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -11,6 +12,7 @@ import {
 import api from '../../services/api';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { user, logout, updateProfile, changePassword, downloadHealthReport } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,7 +30,14 @@ const Profile = () => {
     fitness_goal: '',
     avatar: '',
     bmi_reminder_enabled: false,
-    bmi_reminder_frequency: 'weekly'
+    bmi_reminder_frequency: 'weekly',
+    underlying_diseases: [],
+    food_allergies: [],
+    activity_level: '',
+    other_diseases: '',
+    other_allergies: '',
+    wrist_circumference: '',
+    ankle_circumference: ''
   });
   
   // Change Password Modal State
@@ -81,7 +90,14 @@ const Profile = () => {
       fitness_goal: user?.fitness_goal || '',
       avatar: user?.avatar_url || null,
       bmi_reminder_enabled: user?.bmi_reminder_enabled ?? false,
-      bmi_reminder_frequency: user?.bmi_reminder_frequency || 'weekly'
+      bmi_reminder_frequency: user?.bmi_reminder_frequency || 'weekly',
+      underlying_diseases: user?.underlying_diseases || [],
+      food_allergies: user?.food_allergies || [],
+      activity_level: user?.activity_level || '',
+      other_diseases: user?.other_diseases || '',
+      other_allergies: user?.other_allergies || '',
+      wrist_circumference: user?.wrist_circumference || '',
+      ankle_circumference: user?.ankle_circumference || ''
     });
     setIsEditing(true);
   };
@@ -130,6 +146,13 @@ const Profile = () => {
       fitness_goal: formData.fitness_goal || null,
       bmi_reminder_enabled: formData.bmi_reminder_enabled,
       bmi_reminder_frequency: formData.bmi_reminder_frequency,
+      underlying_diseases: formData.underlying_diseases,
+      food_allergies: formData.food_allergies,
+      activity_level: formData.activity_level,
+      other_diseases: formData.other_diseases,
+      other_allergies: formData.other_allergies,
+      wrist_circumference: formData.wrist_circumference ? parseFloat(formData.wrist_circumference) : null,
+      ankle_circumference: formData.ankle_circumference ? parseFloat(formData.ankle_circumference) : null,
       // Always add avatar_url, even if null
       avatar_url: formData.avatar,
     };
@@ -273,22 +296,32 @@ const Profile = () => {
                 </p>
               </div>
             </div>
-            <div className="flex gap-3 w-full sm:w-auto">
-              {!isEditing && (
-                <Button className="flex-1 sm:flex-none" onClick={startEditing}>
-                  <Settings size={18} className="mr-2" />
-                  Chỉnh sửa Hồ sơ
-                </Button>
-              )}
-              <Button 
-                variant="secondary" 
-                onClick={logout}
-                className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
-              >
-                <LogOut size={18} className="mr-2" />
-                Đăng xuất
-              </Button>
-            </div>
+                <div className="flex flex-wrap gap-3 w-full sm:w-auto items-center justify-end">
+                  {!isEditing && (
+                    <Button className="flex-1 sm:flex-none" onClick={startEditing}>
+                      <Settings size={18} className="mr-2" />
+                      Chỉnh sửa Hồ sơ
+                    </Button>
+                  )}
+                  <Button 
+                    variant="secondary" 
+                    onClick={logout}
+                    className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
+                  >
+                    <LogOut size={18} className="mr-2" />
+                    Đăng xuất
+                  </Button>
+                  {!isEditing && (
+                    <Button 
+                      variant="secondary" 
+                      className="flex-1 sm:flex-none justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                      onClick={downloadHealthReport}
+                    >
+                      <Activity size={16} className="mr-2" />
+                      Xuất báo cáo sức khỏe (PDF)
+                    </Button>
+                  )}
+                </div>
           </div>
 
           {/* Body */}
@@ -481,6 +514,156 @@ const Profile = () => {
                         </select>
                       </div>
 
+                       <div className="sm:col-span-2 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-center space-y-3">
+                         <p className="text-sm text-blue-700 font-medium">
+                           Muốn thay đổi BMI?
+                         </p>
+                         <div className="flex justify-center">
+                          <Button 
+                           variant="secondary" 
+                           className="w-full sm:w-auto text-xs py-2 h-auto"
+                           onClick={() => navigate('/dashboard')}
+                         >
+                           <Settings size={14} className="mr-1" />
+                           Đến Bảng điều khiển
+                         </Button>
+                         </div>
+                         
+                       </div>
+
+                      {/* Tình trạng sức khỏe */}
+                      <div className="sm:col-span-2 space-y-6 pt-4 border-t border-slate-100">
+                        <div className="space-y-3">
+                          <label className="text-xs font-medium uppercase tracking-wide text-slate-500">1. Bệnh nền</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {[
+                              { id: 'diabetes', label: 'Tiểu đường' },
+                              { id: 'hypertension', label: 'Huyết áp cao' },
+                              { id: 'heart_disease', label: 'Tim mạch' },
+                              { id: 'hyperlipidemia', label: 'Mỡ máu cao' },
+                              { id: 'stomach_issue', label: 'Dạ dày' },
+                              { id: 'none_disease', label: 'Không có' },
+                            ].map(disease => (
+                              <label key={disease.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-red-600 transition-colors">
+                                <input 
+                                  type="checkbox" 
+                                  checked={formData.underlying_diseases.includes(disease.id)}
+                                  onChange={(e) => {
+                                    const newValue = e.target.checked 
+                                      ? [...formData.underlying_diseases, disease.id]
+                                      : formData.underlying_diseases.filter(id => id !== disease.id);
+                                    setFormData(prev => ({ ...prev, underlying_diseases: newValue }));
+                                  }}
+                                  className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                />
+                                {disease.label}
+                              </label>
+                            ))}
+                            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={formData.underlying_diseases.includes('other')}
+                                onChange={(e) => {
+                                  const newValue = e.target.checked 
+                                    ? [...formData.underlying_diseases, 'other']
+                                    : formData.underlying_diseases.filter(id => id !== 'other');
+                                  setFormData(prev => ({ ...prev, underlying_diseases: newValue }));
+                                }}
+                                className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                              />
+                              Khác
+                            </label>
+                          </div>
+                          {formData.underlying_diseases.includes('other') && (
+                            <Input 
+                              label="Chi tiết bệnh nền khác" 
+                              name="other_diseases" 
+                              value={formData.other_diseases} 
+                              onChange={handleChange} 
+                              placeholder="Nhập bệnh nền khác..."
+                              className="mt-2"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-xs font-medium uppercase tracking-wide text-slate-500">2. Dị ứng thực phẩm</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {[
+                              { id: 'seafood', label: 'Hải sản' },
+                              { id: 'peanuts', label: 'Đậu phộng' },
+                              { id: 'dairy', label: 'Sữa' },
+                              { id: 'gluten', label: 'Gluten' },
+                              { id: 'none_allergy', label: 'Không có' },
+                            ].map(allergy => (
+                              <label key={allergy.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-red-600 transition-colors">
+                                <input 
+                                  type="checkbox" 
+                                  checked={formData.food_allergies.includes(allergy.id)}
+                                  onChange={(e) => {
+                                    const newValue = e.target.checked 
+                                      ? [...formData.food_allergies, allergy.id]
+                                      : formData.food_allergies.filter(id => id !== allergy.id);
+                                    setFormData(prev => ({ ...prev, food_allergies: newValue }));
+                                  }}
+                                  className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                />
+                                {allergy.label}
+                              </label>
+                            ))}
+                            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={formData.food_allergies.includes('other')}
+                                onChange={(e) => {
+                                  const newValue = e.target.checked 
+                                    ? [...formData.food_allergies, 'other']
+                                    : formData.food_allergies.filter(id => id !== 'other');
+                                  setFormData(prev => ({ ...prev, food_allergies: newValue }));
+                                }}
+                                className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                              />
+                              Khác
+                            </label>
+                          </div>
+                          {formData.food_allergies.includes('other') && (
+                            <Input 
+                              label="Chi tiết dị ứng khác" 
+                              name="other_allergies" 
+                              value={formData.other_allergies} 
+                              onChange={handleChange} 
+                              placeholder="Nhập dị ứng khác..."
+                              className="mt-2"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-xs font-medium uppercase tracking-wide text-slate-500">3. Mức độ vận động hiện tại</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                              { id: 'sedentary', label: 'Ít vận động (ngồi nhiều)' },
+                              { id: 'light', label: 'Vận động nhẹ (1-3 buổi/tuần)' },
+                              { id: 'moderate', label: 'Vận động vừa (3-5 buổi/tuần)' },
+                              { id: 'active', label: 'Vận động nhiều (6-7 buổi/tuần)' },
+                            ].map(level => (
+                              <label key={level.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-red-600 transition-colors">
+                                <input 
+                                  type="radio" 
+                                  name="activity_level" 
+                                  value={level.id}
+                                  checked={formData.activity_level === level.id}
+                                  onChange={handleChange}
+                                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                                />
+                                {level.label}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save / Cancel buttons — chỉ hiển thị ở đây vì đây là card cuối cùng trong edit mode */}
                       {/* Save / Cancel buttons — chỉ hiển thị ở đây vì đây là card cuối cùng trong edit mode */}
                       <div className="sm:col-span-2 flex items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
                         <Button 
@@ -528,6 +711,19 @@ const Profile = () => {
                             {!bmi && <p className="text-xs text-slate-400 mt-1 italic">Chưa có dữ liệu BMI</p>}
                           </>
                         )}
+                        {isEditing && (
+                          <div className="mt-4 p-3 bg-red-50 rounded-xl border border-red-100 text-center">
+                            <p className="text-xs text-red-600 font-medium mb-2">Muốn thay đổi chỉ số BMI?</p>
+                            <Button 
+                              variant="secondary" 
+                              className="w-full text-xs py-1.5 h-auto"
+                              onClick={() => navigate('/dashboard')}
+                            >
+                              <Settings size={14} className="mr-1" />
+                              Đến Bảng điều khiển
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Giới tính */}
@@ -566,6 +762,76 @@ const Profile = () => {
                             : user?.fitness_goal === 'gain_muscle' ? '💪 Tăng cơ bắp'
                             : 'Chưa cung cấp'}
                         </p>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vòng cổ tay</p>
+                        <p className={`text-2xl font-bold ${latestBMI?.wrist_circumference_cm ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {latestBMI?.wrist_circumference_cm ? latestBMI.wrist_circumference_cm : '—'}
+                        </p>
+                        {latestBMI?.wrist_circumference_cm && <p className="text-xs text-slate-500 mt-1">cm</p>}
+                      </div>
+
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vòng cổ chân</p>
+                        <p className={`text-2xl font-bold ${latestBMI?.ankle_circumference_cm ? 'text-slate-800' : 'text-slate-300'}`}>
+                          {latestBMI?.ankle_circumference_cm ? latestBMI.ankle_circumference_cm : '—'}
+                        </p>
+                        {latestBMI?.ankle_circumference_cm && <p className="text-xs text-slate-500 mt-1">cm</p>}
+                      </div>
+
+                      {/* Tình trạng sức khỏe */}
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 sm:col-span-3">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Tình trạng sức khỏe</p>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 font-medium">Bệnh nền:</span>
+                            <span className="text-slate-800">
+                              {user?.underlying_diseases?.length > 0 
+                                ? (user.underlying_diseases.map(id => {
+                                    if (id === 'none_disease') return 'Không có';
+                                    if (id === 'other') return `Khác (${user.other_diseases || 'không rõ'})`;
+                                    const map = {
+                                      diabetes: 'Tiểu đường',
+                                      hypertension: 'Huyết áp cao',
+                                      heart_disease: 'Tim mạch',
+                                      hyperlipidemia: 'Mỡ máu cao',
+                                      stomach_issue: 'Dạ dày'
+                                    };
+                                    return map[id] || id;
+                                  }).join(', '))
+                                : 'Chưa cung cấp'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 font-medium">Dị ứng:</span>
+                            <span className="text-slate-800">
+                              {user?.food_allergies?.length > 0 
+                                ? (user.food_allergies.map(id => {
+                                    if (id === 'none_allergy') return 'Không có';
+                                    if (id === 'other') return `Khác (${user.other_allergies || 'không rõ'})`;
+                                    const map = {
+                                      seafood: 'Hải sản',
+                                      peanuts: 'Đậu phộng',
+                                      dairy: 'Sữa',
+                                      gluten: 'Gluten'
+                                    };
+                                    return map[id] || id;
+                                  }).join(', '))
+                                : 'Chưa cung cấp'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-slate-500 font-medium">Mức độ vận động:</span>
+                            <span className="text-slate-800">
+                              {user?.activity_level === 'sedentary' ? 'Ít vận động (ngồi nhiều)'
+                                : user?.activity_level === 'light' ? 'Vận động nhẹ (1-3 buổi/tuần)'
+                                : user?.activity_level === 'moderate' ? 'Vận động vừa (3-5 buổi/tuần)'
+                                : user?.activity_level === 'active' ? 'Vận động nhiều (6-7 buổi/tuần)'
+                                : 'Chưa cung cấp'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -632,26 +898,18 @@ const Profile = () => {
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-red-200 transition-colors duration-300">
           <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
             <Key size={20} className="text-red-500" />
-            Thiết lập Bảo mật
+            Thiết lập bảo mật
           </h3>
-          <div className="space-y-4">
-            <Button 
-              variant="secondary" 
-              className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
-              onClick={downloadHealthReport}
-            >
-              <Activity size={16} className="mr-2" />
-              Xuất báo cáo sức khỏe (PDF)
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
-              onClick={openChangePasswordModal}
-              disabled={user?.auth_provider === 'google'}
-            >
-              <Lock size={16} className="mr-2" />
-              Đổi mật khẩu
-            </Button>
+            <div className="space-y-4">
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start text-sm hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                onClick={openChangePasswordModal}
+                disabled={user?.auth_provider === 'google'}
+              >
+                <Lock size={16} className="mr-2" />
+                Đổi mật khẩu
+              </Button>
             {user?.auth_provider === 'google' && (
               <p className="text-xs text-slate-500 text-center">
                 Tài khoản Google không thể đổi mật khẩu

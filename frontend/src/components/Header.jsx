@@ -3,6 +3,7 @@ import { User, LogOut } from "lucide-react";
 import BaymaxLogo from "./BaymaxLogo";
 import { useAuth } from "../auth/context/AuthContext";
 import { useRef, useState, useEffect } from "react";
+import api from "../services/api";
 
 const navItems = [
   { label: "Bảng điều khiển", to: "/dashboard" },
@@ -10,9 +11,9 @@ const navItems = [
   { label: "Trang cá nhân", to: "/profile" },
 ];
 
-const Header = () => {
-  const { isAuthenticated, user, logout, openAuthModal } = useAuth();
-  const navigate = useNavigate();
+  const Header = () => {
+    const { isAuthenticated, user, logout, openAuthModal, isAdminOnline } = useAuth();
+    const navigate = useNavigate();
   const btnRef = useRef(null);
   const [notificationCount, setNotificationCount] = useState(0);
 
@@ -20,20 +21,33 @@ const Header = () => {
     (item) => !(item.to === "/profile" && !isAuthenticated)
   );
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setNotificationCount(0);
-      return;
-    }
+    useEffect(() => {
+      if (!isAuthenticated) {
+        setNotificationCount(0);
+        return;
+      }
 
-    const notifKey = `notifications_count_${user?.id || "guest"}`;
+      const fetchInitialCount = async () => {
+        try {
+          console.log("Header: Fetching initial unread count...");
+          const response = await api.get("/support/admin/unread-count");
+          const count = response.data;
+          console.log("Header: Received unread count:", count);
+          setNotificationCount(count);
+          if (user?.id) {
+            const notifKey = `notifications_count_${user.id}`;
+            localStorage.setItem(notifKey, String(count));
+          }
+        } catch (error) {
+          console.error("Header: Failed to fetch unread count:", error);
+        }
+      };
 
-    const stored = localStorage.getItem(notifKey);
-    if (stored) {
-      setNotificationCount(parseInt(stored, 10));
-    }
+      fetchInitialCount();
 
-    const handleStorageChange = (e) => {
+      const notifKey = `notifications_count_${user?.id || "guest"}`;
+
+      const handleStorageChange = (e) => {
       if (e.key === notifKey) {
         if (e.newValue) {
           setNotificationCount(parseInt(e.newValue, 10));

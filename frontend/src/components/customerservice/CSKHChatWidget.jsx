@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Headphones, Minus, X } from "lucide-react";
 import { useAuth } from "../../auth/context/AuthContext";
+import { toast } from "react-toastify";
 import api from "../../services/api";
 import ChatBubble from "../chatbot/ChatBubble";
 import ChatInput from "./ChatInput";
@@ -203,6 +204,7 @@ const CSKHChatWidget = () => {
     setIsTyping(true);
 
     if (!isAuthenticated) {
+      toast.error("Vui lòng đăng nhập để sử dụng tính năng chat chăm sóc khách hàng!");
       setTimeout(() => {
         setIsTyping(false);
       }, 800);
@@ -322,7 +324,7 @@ const CSKHChatWidget = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 scrollbar-none">
         <div className="flex flex-col gap-3">
           {messages.map((message) => (
             <ChatBubble key={message.id} message={message} />

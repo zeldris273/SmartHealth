@@ -116,9 +116,6 @@ def goal_label(goal: str | None) -> str:
     return labels.get(goal or "", goal or "chưa có")
 
 
-DAILY_CHAT_LIMIT = 10
-
-
 def build_health_context(user: User | None, latest_bmi: BMIRecord | None, bmi_history: list[BMIRecord]) -> str:
     if user is None:
         return "Người dùng chưa đăng nhập, chưa có hồ sơ sức khỏe cá nhân."
@@ -133,8 +130,17 @@ def build_health_context(user: User | None, latest_bmi: BMIRecord | None, bmi_hi
         f"Giới tính: {gender or 'chưa có'}",
         f"Chiều cao: {height if height else 'chưa có'} cm",
         f"Cân nặng: {weight if weight else 'chưa có'} kg",
+        f"Vòng cổ tay: {user.wrist_circumference if user.wrist_circumference else 'chưa có'} cm",
+        f"Vòng cổ chân: {user.ankle_circumference if user.ankle_circumference else 'chưa có'} cm",
         f"Mục tiêu: {goal_label(user.fitness_goal)}",
+        f"Mức độ vận động: {user.activity_level or 'chưa có'}",
+        f"Bệnh nền: {user.underlying_diseases or 'không có'}",
+        f"Dị ứng thực phẩm: {user.food_allergies or 'không có'}",
     ]
+    if user.other_diseases:
+        lines.append(f"Chi tiết bệnh nền khác: {user.other_diseases}")
+    if user.other_allergies:
+        lines.append(f"Chi tiết dị ứng khác: {user.other_allergies}")
 
     if latest_bmi:
         lines.append(f"BMI hiện tại: {latest_bmi.bmi_value} ({latest_bmi.bmi_category_vi})")
@@ -330,14 +336,6 @@ async def chat_with_ai(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    if current_user:
-        count = get_today_message_count(db, current_user.id)
-        if count >= DAILY_CHAT_LIMIT:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Lượt chat hôm nay đã hết, quay lại vào ngày mai nhé! 🔄",
-            )
-
     session_id = request.session_id or uuid4().hex
     bmi = request.bmi
     history = request.history
@@ -406,30 +404,6 @@ async def chat_with_ai(
     )
 
 
-@router.get(
-    "/chat/limit",
-    summary="Kiểm tra giới hạn lượt chat trong ngày",
-    status_code=status.HTTP_200_OK,
-)
-def get_chat_limit(
-    db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_current_user),
-):
-    if current_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Cần đăng nhập để kiểm tra giới hạn chat.",
-        )
-    
-    count = get_today_message_count(db, current_user.id)
-    now = datetime.now(timezone.utc)
-    reset_at = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    return {
-        "count": count,
-        "limit": DAILY_CHAT_LIMIT,
-        "reset_at": reset_at
-    }
 
 
 @router.get(
