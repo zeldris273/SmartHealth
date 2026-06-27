@@ -38,6 +38,7 @@ const Profile = () => {
     other_allergies: '',
     wrist_circumference: '',
     ankle_circumference: ''
+    other_allergies: ''
   });
   
   // Change Password Modal State
@@ -98,6 +99,7 @@ const Profile = () => {
       other_allergies: user?.other_allergies || '',
       wrist_circumference: user?.wrist_circumference || '',
       ankle_circumference: user?.ankle_circumference || ''
+      other_allergies: user?.other_allergies || ''
     });
     setIsEditing(true);
   };
