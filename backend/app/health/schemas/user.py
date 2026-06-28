@@ -59,11 +59,13 @@ class UserProfileUpdate(BaseModel):
     fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
     bmi_reminder_enabled: bool | None = None
     bmi_reminder_frequency: Literal["daily", "weekly"] | None = None
-    underlying_diseases: list[str] | None = None
-    food_allergies: list[str] | None = None
+    underlying_diseases: str | None = None
+    food_allergies: str | None = None
     activity_level: str | None = None
     other_diseases: str | None = None
     other_allergies: str | None = None
+    wrist_circumference: float | None = None
+    ankle_circumference: float | None = None
     avatar_url: str | None = None
 
 
@@ -89,23 +91,14 @@ class UserResponse(BaseModel):
     bmi_reminder_enabled: bool = False
     bmi_reminder_frequency: str = "weekly"
     auth_provider: str = "local"
-    underlying_diseases: list[str] | None = None
-    food_allergies: list[str] | None = None
+    underlying_diseases: str | None = None
+    food_allergies: str | None = None
     activity_level: str | None = None
     other_diseases: str | None = None
     other_allergies: str | None = None
-
-    @field_validator('underlying_diseases', 'food_allergies', mode='before')
-    @classmethod
-    def parse_json_list(cls, v):
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except json.JSONDecodeError:
-                return []
-        return v
-
-    # Thay class Config cũ bằng model_config chuẩn Pydantic v2 mới nhất
+    wrist_circumference: float | None = None
+    ankle_circumference: float | None = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 

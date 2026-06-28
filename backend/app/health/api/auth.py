@@ -75,13 +75,22 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    data = AuthService.login(db, payload.email, payload.password)
-    _set_refresh_cookie(response, data["refresh_token"])
-    # Chỉ trả access_token trong JSON — refresh_token ở trong cookie
-    return {
-        "access_token": data["access_token"],
-        "token_type": data["token_type"],
-    }
+    try:
+        data = AuthService.login(db, payload.email, payload.password)
+        _set_refresh_cookie(response, data["refresh_token"])
+        # Chỉ trả access_token trong JSON — refresh_token ở trong cookie
+        return {
+            "access_token": data["access_token"],
+            "token_type": data["token_type"],
+        }
+    except Exception as e:
+        import traceback
+        print(f"ERROR in /auth/login: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login error: {str(e)}"
+        )
 
 
 @router.post(
@@ -221,12 +230,21 @@ def google_login(
     db: Session = Depends(get_db),
 ):
     """Đăng nhập bằng Google token, set refresh cookie tương tự login thường."""
-    data = AuthService.google_login(db, payload.token)
-    _set_refresh_cookie(response, data["refresh_token"])
-    return {
-        "access_token": data["access_token"],
-        "token_type": data["token_type"],
-    }
+    try:
+        data = AuthService.google_login(db, payload.token)
+        _set_refresh_cookie(response, data["refresh_token"])
+        return {
+            "access_token": data["access_token"],
+            "token_type": data["token_type"],
+        }
+    except Exception as e:
+        import traceback
+        print(f"ERROR in /auth/google-login: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google login error: {str(e)}"
+        )
 
 
 @router.post(

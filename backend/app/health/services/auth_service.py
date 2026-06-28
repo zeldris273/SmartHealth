@@ -61,12 +61,18 @@ class AuthService:
                 detail="Invalid email or password",
             )
 
-        if user.auth_provider == "google":
+        if user.auth_provider == "google" and not user.password_hash:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This account uses Google Login. Please sign in with Google.",
             )
 
+        if not user.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+            
         if not verify_password(password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -274,19 +280,22 @@ class AuthService:
         - Kiểm tra xem tài khoản có dùng Google login không (nếu dùng, không cho đổi)
         - Cập nhật mật khẩu mới
         """
-        if user.auth_provider == "google":
+        if user.auth_provider == "google" and not user.password_hash:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This account uses Google Login. Cannot change password.",
             )
         
-        if not verify_password(current_password, user.password_hash):
+        if user.password_hash and not verify_password(current_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current password is incorrect",
             )
         
         user.password_hash = hash_password(new_password)
+        # If user was previously only Google, set to both now
+        if user.auth_provider == "google":
+            user.auth_provider = "both"
         db.commit()
         
         return {

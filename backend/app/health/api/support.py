@@ -310,14 +310,64 @@ def get_unread_count(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db)
 ):
-    """Lấy số lượng ticket cần xử lý (không tính đã đóng)."""
-    # Vì hệ thống hiện tại có tin nhắn tự động (bot) trả lời, 
-    # việc kiểm tra tin nhắn cuối cùng từ user sẽ bị sai.
-    # Giải pháp: Đếm tất cả các ticket đang ở trạng thái 'open' hoặc 'in_progress'.
-    count = db.query(SupportTicket).filter(
+    """Lấy tổng số tin nhắn chưa đọc từ người dùng."""
+    # Đếm tất cả tin nhắn từ user (sender_id != admin) mà có ID > last_admin_read_message_id
+    # Hoặc tất cả tin nhắn từ user nếu chưa có last_admin_read_message_id
+    unread_count = 0
+    
+    # Lấy tất cả tickets không đóng
+    active_tickets = db.query(SupportTicket).filter(
         SupportTicket.status.in_(["open", "in_progress"])
-    ).count()
-    return count
+    ).all()
+    
+    for ticket in active_tickets:
+        # Lấy tất cả tin nhắn từ user chưa được xem
+        query = db.query(SupportMessage).filter(
+            SupportMessage.ticket_id == ticket.id,
+            SupportMessage.sender_id != current_user.id
+        )
+        
+        if ticket.last_admin_read_message_id:
+            query = query.filter(SupportMessage.id > ticket.last_admin_read_message_id)
+        
+        unread_count += query.count()
+    
+    return unread_count
+
+
+@router.post("/admin/tickets/{ticket_id}/mark-read", response_model=SupportTicketResponse)
+def mark_ticket_as_read(
+    ticket_id: int,
+    current_user: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """Đánh dấu ticket đã đọc đến tin nhắn cuối cùng."""
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket không tồn tại"
+        )
+    
+    # Lấy tin nhắn cuối cùng
+    latest_message = db.query(SupportMessage).filter(
+        SupportMessage.ticket_id == ticket_id
+    ).order_by(SupportMessage.created_at.desc(), SupportMessage.id.desc()).first()
+    
+    if latest_message:
+        ticket.last_admin_read_message_id = latest_message.id
+        ticket.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(ticket)
+    
+    # Load relationships
+    ticket = db.query(SupportTicket).options(
+        joinedload(SupportTicket.user),
+        joinedload(SupportTicket.messages).joinedload(SupportMessage.sender)
+    ).filter(SupportTicket.id == ticket_id).first()
+    
+    return ticket
 
 
 @router.get("/admin/tickets", response_model=List[SupportTicketResponse])
@@ -330,6 +380,20 @@ def get_all_tickets(
         joinedload(SupportTicket.user),
         joinedload(SupportTicket.messages)
     ).order_by(SupportTicket.updated_at.desc()).all()
+    
+    # Thêm thông tin unread cho mỗi ticket
+    for ticket in tickets:
+        # Đếm số tin nhắn từ user chưa được xem trong ticket này
+        query = db.query(SupportMessage).filter(
+            SupportMessage.ticket_id == ticket.id,
+            SupportMessage.sender_id != current_user.id
+        )
+        
+        if ticket.last_admin_read_message_id:
+            query = query.filter(SupportMessage.id > ticket.last_admin_read_message_id)
+        
+        ticket._unread_messages_count = query.count()
+    
     return tickets
 
 

@@ -23,7 +23,7 @@ const getSupportWsUrl = () => {
 const isNotificationSupported = () => typeof window !== 'undefined' && 'Notification' in window;
 
 const CSKHChatWidget = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, openAuthModal } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
   const [isTyping, setIsTyping] = useState(false);
@@ -240,6 +240,12 @@ const CSKHChatWidget = () => {
   };
 
   const openChat = () => {
+    if (!isAuthenticated) {
+      openAuthModal('login');
+      toast.info("Vui lòng đăng nhập để sử dụng tính năng chat chăm sóc khách hàng!");
+      return;
+    }
+    
     setIsOpen(true);
     setUnreadCount(0);
     
@@ -280,7 +286,7 @@ const CSKHChatWidget = () => {
           </span>
         </button>
 
-        {unreadCount > 0 && (
+        {isAuthenticated && unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 text-[11px] font-bold text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
@@ -324,34 +330,60 @@ const CSKHChatWidget = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 scrollbar-none">
-        <div className="flex flex-col gap-3">
-          {messages.map((message) => (
-            <ChatBubble key={message.id} message={message} />
-          ))}
-          {showOfflineAutoMessage && (
-            <ChatBubble 
-              message={{ 
-                id: "auto-offline", 
-                from: "admin", 
-                text: `Chào ${user?.full_name || "bạn"}, cảm ơn bạn đã liên hệ và ban quản trị sẽ phản hồi bạn sớm nhất.` 
-              }} 
-            />
-          )}
-          {isTyping && (
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1 rounded-2xl rounded-tl-none bg-red-50 px-4 py-2 text-sm text-red-600">
-                <span className="animate-bounce">.</span>
-                <span className="animate-bounce delay-100">.</span>
-                <span className="animate-bounce delay-200">.</span>
-              </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
+      {!isAuthenticated ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
+          <div className="rounded-full bg-red-50 p-4 text-red-600">
+            <Headphones size={40} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Đăng nhập để chat</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Vui lòng đăng nhập để sử dụng tính năng chat chăm sóc khách hàng!
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              openAuthModal('login');
+            }}
+            className="rounded-lg bg-[#dc2626] px-6 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+          >
+            Đăng nhập ngay
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-4 scrollbar-none">
+            <div className="flex flex-col gap-3">
+              {messages.map((message) => (
+                <ChatBubble key={message.id} message={message} />
+              ))}
+              {showOfflineAutoMessage && (
+                <ChatBubble 
+                  message={{ 
+                    id: "auto-offline", 
+                    from: "admin", 
+                    text: `Chào ${user?.full_name || "bạn"}, cảm ơn bạn đã liên hệ và ban quản trị sẽ phản hồi bạn sớm nhất.` 
+                  }} 
+                />
+              )}
+              {isTyping && (
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 rounded-2xl rounded-tl-none bg-red-50 px-4 py-2 text-sm text-red-600">
+                    <span className="animate-bounce">.</span>
+                    <span className="animate-bounce delay-100">.</span>
+                    <span className="animate-bounce delay-200">.</span>
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+          </div>
 
-      <ChatInput onSend={handleSend} disabled={isTyping} />
+          <ChatInput onSend={handleSend} disabled={isTyping} />
+        </>
+      )}
     </section>
   );
 };

@@ -66,8 +66,7 @@ const navItems = [
     };
 
     const handleClearNotification = () => {
-      setNotificationCount(0);
-      localStorage.removeItem(notifKey);
+      clearNotifications();
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -81,18 +80,19 @@ const navItems = [
     };
   }, [isAuthenticated, user?.id]);
 
-  const clearNotifications = () => {
-    setNotificationCount(0);
-    const notifKey = `notifications_count_${user?.id || "guest"}`;
-    localStorage.removeItem(notifKey);
-  };
-
-  const clearAllNotifications = () => {
-    clearNotifications();
-  };
-
-  const handleDashboardClick = () => {
-    clearAllNotifications();
+  const clearNotifications = async () => {
+    // Refetch the count from server to get accurate value
+    try {
+      const response = await api.get("/support/admin/unread-count");
+      const count = response.data;
+      setNotificationCount(count);
+      if (user?.id) {
+        const notifKey = `notifications_count_${user.id}`;
+        localStorage.setItem(notifKey, String(count));
+      }
+    } catch (error) {
+      console.error("Failed to refresh unread count:", error);
+    }
   };
 
   const spawnParticles = () => {
@@ -338,9 +338,6 @@ const navItems = [
                   to={item.to}
                   onClick={(e) => {
                     addRipple(e);
-                    if (item.label === "Bảng điều khiển") {
-                      clearAllNotifications();
-                    }
                   }}
                   className={({ isActive }) =>
                     `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer ${
@@ -359,7 +356,7 @@ const navItems = [
                   to="/admin"
                   onClick={(e) => {
                     addRipple(e);
-                    clearAllNotifications();
+                    clearNotifications();
                   }}
                   className={({ isActive }) =>
                     `relative overflow-hidden text-sm font-medium px-4 py-1.5 rounded-full border-none transition-all duration-200 cursor-pointer ${

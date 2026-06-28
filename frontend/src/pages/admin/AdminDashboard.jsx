@@ -352,6 +352,13 @@ const AdminDashboard = () => {
   const loadTicketDetail = useCallback(
     async (ticketId) => {
       try {
+        // Mark ticket as read first
+        await api.post(`/support/admin/tickets/${ticketId}/mark-read`);
+        
+        // Clear notification count
+        window.dispatchEvent(new CustomEvent("notification:clear"));
+        
+        // Then load ticket detail
         const response = await api.get(`/support/admin/tickets/${ticketId}`);
         const newTicket = response.data;
 
@@ -784,32 +791,30 @@ const AdminDashboard = () => {
                     </div>
                   ) : (
                     filteredTickets.map((ticket) => (
-                      <div
-                        key={ticket.id}
-                        onClick={() => {
-                          loadTicketDetail(ticket.id);
-                          setHasNewTicketNotification(false);
-                        }}
-                        className={`p-4 border-b border-gray-100 cursor-pointer transition-all hover:bg-gray-50 ${
-                          selectedTicket?.id === ticket.id
-                            ? "bg-blue-50 border-l-4 border-blue-500"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-slate-900 truncate">
-                              {ticket.subject}
-                            </h4>
-                            {/* New message indicator */}
-                            {selectedTicket?.id !== ticket.id &&
-                              ticket.messages &&
-                              ticket.messages.length > 0 &&
-                              (selectedTicket?.messages?.length || 0) <
-                                ticket.messages.length && (
-                                <span className="flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
-                              )}
-                          </div>
+                  <div
+                    key={ticket.id}
+                    onClick={() => {
+                      loadTicketDetail(ticket.id);
+                      setHasNewTicketNotification(false);
+                    }}
+                    className={`p-4 border-b border-gray-100 cursor-pointer transition-all hover:bg-gray-50 ${
+                      selectedTicket?.id === ticket.id
+                        ? "bg-blue-50 border-l-4 border-blue-500"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-slate-900 truncate">
+                          {ticket.subject}
+                        </h4>
+                        {/* New message indicator with count */}
+                        {ticket._unread_messages_count > 0 && (
+                          <span className="flex h-5 min-w-[20px] px-1 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                            {ticket._unread_messages_count > 99 ? "99+" : ticket._unread_messages_count}
+                          </span>
+                        )}
+                      </div>
                           <span
                             className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
                               ticket.status === "open"
