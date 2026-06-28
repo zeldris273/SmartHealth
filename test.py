@@ -4,10 +4,30 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from openpyxl import Workbook
+from datetime import datetime
 import time
 
 EMAIL = "sekaikamiki2309@gmail.com"
 PASSWORD = "Roti2324@232400"
+
+# =========================
+# EXCEL REPORT
+# =========================
+wb = Workbook()
+ws = wb.active
+ws.title = "Login Test Report"
+
+ws.append([
+    "STT",
+    "Test Case",
+    "Expected Result",
+    "Actual Result",
+    "Status",
+    "Execution Time"
+])
+
+stt = 1
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 driver.get("http://localhost:5173/")
@@ -20,17 +40,39 @@ wait = WebDriverWait(driver, 20)
 # =========================
 print("Opening login modal...")
 
-login_button = wait.until(
-    EC.element_to_be_clickable((By.CSS_SELECTOR, "button"))
-)
+try:
+    login_button = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "button"))
+    )
 
-driver.execute_script("arguments[0].click();", login_button)
+    driver.execute_script("arguments[0].click();", login_button)
+
+    ws.append([
+        stt,
+        "Open Login Modal",
+        "Modal opens",
+        "Modal opened successfully",
+        "PASS",
+        datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ])
+    stt += 1
+
+except Exception as e:
+    ws.append([
+        stt,
+        "Open Login Modal",
+        "Modal opens",
+        str(e),
+        "FAIL",
+        datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ])
+    wb.save("Login_Test_Report.xlsx")
+    driver.quit()
+    exit()
 
 # =========================
-# 2. CHỜ MODAL + XOÁ OVERLAY CSKH (TRÁNH CLICK INTERCEPTED)
+# 2. REMOVE CHAT BUTTON
 # =========================
-print("Waiting for login form...")
-
 time.sleep(2)
 
 driver.execute_script("""
@@ -38,64 +80,92 @@ document.querySelectorAll('button[aria-label="Mở chat CSKH"]').forEach(e => e.
 """)
 
 # =========================
-# 3. CHỜ INPUT LOGIN
+# 3. LOGIN
 # =========================
-inputs = wait.until(
-    EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input"))
-)
+print("Waiting for login form...")
 
-print(f"Found {len(inputs)} inputs")
+try:
+    inputs = wait.until(
+        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input"))
+    )
 
-if len(inputs) < 2:
-    print("❌ Not enough inputs found!")
+    print(f"Found {len(inputs)} inputs")
+
+    inputs[0].clear()
+    inputs[0].send_keys(EMAIL)
+
+    inputs[1].clear()
+    inputs[1].send_keys(PASSWORD)
+
+    login_btn = wait.until(
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//button[contains(., 'Đăng nhập') or contains(., 'Login') or @type='submit']"
+        ))
+    )
+
+    driver.execute_script("arguments[0].click();", login_btn)
+
+except Exception as e:
+
+    ws.append([
+        stt,
+        "Input Login",
+        "User can login",
+        str(e),
+        "FAIL",
+        datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ])
+
+    wb.save("Login_Test_Report.xlsx")
     driver.quit()
     exit()
 
 # =========================
-# 4. NHẬP EMAIL / PASSWORD
-# =========================
-inputs[0].clear()
-inputs[0].send_keys(EMAIL)
-
-inputs[1].clear()
-inputs[1].send_keys(PASSWORD)
-
-# =========================
-# 5. CLICK LOGIN BUTTON (CHÍNH XÁC TRONG MODAL)
-# =========================
-print("Clicking login...")
-
-login_btn = wait.until(
-    EC.element_to_be_clickable((
-        By.XPATH,
-        "//button[contains(., 'Đăng nhập') or contains(., 'Login') or @type='submit']"
-    ))
-)
-
-driver.execute_script("arguments[0].click();", login_btn)
-
-# =========================
-# 6. VERIFY LOGIN SUCCESS
+# 4. VERIFY LOGIN
 # =========================
 print("Checking login result...")
 
 time.sleep(5)
 
 current_url = driver.current_url
-print("Current URL:", current_url)
+page = driver.page_source.lower()
 
 if "/dashboard" in current_url or "/profile" in current_url:
-    print("✅ LOGIN SUCCESS (URL changed)")
+
+    status = "PASS"
+    actual = "Redirected to " + current_url
+
+elif "logout" in page or "profile" in page:
+
+    status = "PASS"
+    actual = "Logged in successfully"
+
 else:
-    page = driver.page_source.lower()
 
-    if "logout" in page or "profile" in page:
-        print("✅ LOGIN SUCCESS (UI detected)")
-    else:
-        print("❌ LOGIN FAILED")
+    status = "FAIL"
+    actual = "Login failed"
+
+print(status)
+
+ws.append([
+    stt,
+    "Login",
+    "User logs in successfully",
+    actual,
+    status,
+    datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+])
 
 # =========================
-# 7. CLOSE
+# SAVE EXCEL
 # =========================
+wb.save("Login_Test_Report.xlsx")
+
+print("\n===================================")
+print("Excel Report Saved")
+print("File: Login_Test_Report.xlsx")
+print("===================================")
+
 time.sleep(3)
 driver.quit()

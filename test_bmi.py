@@ -5,6 +5,37 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font
+
+wb = Workbook()
+ws = wb.active
+ws.title = "BMI Test"
+
+ws.append(["Test Case", "Status", "Detail"])
+
+green = PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid")
+red = PatternFill(start_color="FF9999", end_color="FF9999", fill_type="solid")
+
+for cell in ws[1]:
+    cell.font = Font(bold=True)
+
+pass_count = 0
+fail_count = 0
+
+def report(tc, status, detail):
+    global pass_count, fail_count
+
+    ws.append([tc, status, detail])
+
+    row = ws.max_row
+
+    if status == "PASS":
+        ws[f"B{row}"].fill = green
+        pass_count += 1
+    else:
+        ws[f"B{row}"].fill = red
+        fail_count += 1
 
 EMAIL = "sekaikamiki2309@gmail.com"
 PASSWORD = "Roti2324@232400"
@@ -44,6 +75,7 @@ driver.execute_script("arguments[0].click();", submit)
 
 time.sleep(4)
 print("Login OK:", driver.current_url)
+report("Login", "PASS", "Login successful")
 
 # =========================
 # 2. DASHBOARD
@@ -69,8 +101,10 @@ if len(inputs) >= 3:
     inputs[2].send_keys("75")    # WEIGHT
 
     print("BMI inputs filled")
+    report("BMI", "PASS", "BMI calculated")
 else:
     print("❌ BMI inputs not found")
+    report("BMI", "FAIL", "BMI inputs not found")
 
 for b in driver.find_elements(By.TAG_NAME, "button"):
     if "bmi" in b.text.lower() or "calculate" in b.text.lower() or "tính" in b.text.lower():
@@ -84,13 +118,24 @@ time.sleep(3)
 # =========================
 print("TEST CALORIES...")
 
+calories_found = False
+
 for b in driver.find_elements(By.TAG_NAME, "button"):
     if "cal" in b.text.lower() or "calories" in b.text.lower():
         driver.execute_script("arguments[0].click();", b)
+        calories_found = True
         break
 
 time.sleep(2)
 
+if calories_found:
+    print("✅ CALORIES CALCULATED")
+    report("Calories", "PASS", "Calories calculated")
+else:
+    print("❌ CALORIES BUTTON NOT FOUND")
+    report("Calories", "FAIL", "Calories button not found")
+    
+    
 # =========================
 # 5. HEALTH TIPS
 # =========================
@@ -104,9 +149,10 @@ try:
         ))
     )
     print("✅ HEALTH TIPS VISIBLE")
+    report("Health Tips", "PASS", "Health tips displayed")
 except:
     print("❌ HEALTH TIPS NOT FOUND")
-
+    report("Health Tips", "FAIL", "Health tips not found")
 # =========================
 # 6. PERSONAL HEALTH SUGGESTION
 # =========================
@@ -133,9 +179,10 @@ try:
     )
 
     print("✅ PERSONAL HEALTH SUGGESTION VISIBLE")
-
+    report("Personal Suggestion", "PASS", "Suggestion generated")
 except:
     print("❌ PERSONAL HEALTH SUGGESTION NOT FOUND")
+    report("Personal Suggestion", "FAIL", "Suggestion not generated")
 
 # =========================
 # 7. WEIGHT GOALS (FIXED CLICK)
@@ -154,9 +201,10 @@ try:
     )
     driver.execute_script("arguments[0].click();", giam_can_btn)
     print("✅ CLICKED: GIẢM CÂN")
+    report("Giảm cân", "PASS", "Clicked successfully")
 except:
     print("❌ GIẢM CÂN NOT FOUND / NOT CLICKABLE")
-
+    report("Giảm cân", "FAIL", "Button not found")
 time.sleep(1)
 
 # TĂNG CÂN
@@ -169,8 +217,10 @@ try:
     )
     driver.execute_script("arguments[0].click();", tang_can_btn)
     print("✅ CLICKED: TĂNG CÂN")
+    report("Login", "PASS", "Login successful")
 except:
     print("❌ TĂNG CÂN NOT FOUND / NOT CLICKABLE")
+    report("Tăng cân", "FAIL", "Button not found")
 
 # =========================
 # 8. FINAL
@@ -180,4 +230,13 @@ print("TEST DONE")
 print("====================")
 
 time.sleep(3)
+
+ws.append([])
+ws.append(["TOTAL PASS", pass_count])
+ws.append(["TOTAL FAIL", fail_count])
+ws.append(["TOTAL TEST", pass_count + fail_count])
+
+wb.save("BMI_Test_Report.xlsx")
+
+print("Excel report saved: BMI_Test_Report.xlsx")
 driver.quit()
