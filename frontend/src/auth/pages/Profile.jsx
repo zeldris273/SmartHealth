@@ -38,7 +38,6 @@ const Profile = () => {
     other_allergies: '',
     wrist_circumference: '',
     ankle_circumference: ''
-    other_allergies: ''
   });
   
   // Change Password Modal State
@@ -92,14 +91,13 @@ const Profile = () => {
       avatar: user?.avatar_url || null,
       bmi_reminder_enabled: user?.bmi_reminder_enabled ?? false,
       bmi_reminder_frequency: user?.bmi_reminder_frequency || 'weekly',
-      underlying_diseases: user?.underlying_diseases || [],
-      food_allergies: user?.food_allergies || [],
+      underlying_diseases: user?.underlying_diseases ? JSON.parse(user.underlying_diseases) : [],
+      food_allergies: user?.food_allergies ? JSON.parse(user.food_allergies) : [],
       activity_level: user?.activity_level || '',
       other_diseases: user?.other_diseases || '',
       other_allergies: user?.other_allergies || '',
       wrist_circumference: user?.wrist_circumference || '',
       ankle_circumference: user?.ankle_circumference || ''
-      other_allergies: user?.other_allergies || ''
     });
     setIsEditing(true);
   };
@@ -148,8 +146,8 @@ const Profile = () => {
       fitness_goal: formData.fitness_goal || null,
       bmi_reminder_enabled: formData.bmi_reminder_enabled,
       bmi_reminder_frequency: formData.bmi_reminder_frequency,
-      underlying_diseases: formData.underlying_diseases,
-      food_allergies: formData.food_allergies,
+      underlying_diseases: JSON.stringify(formData.underlying_diseases),
+      food_allergies: JSON.stringify(formData.food_allergies),
       activity_level: formData.activity_level,
       other_diseases: formData.other_diseases,
       other_allergies: formData.other_allergies,

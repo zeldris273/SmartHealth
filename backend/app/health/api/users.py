@@ -28,10 +28,19 @@ def get_my_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    current_user.last_online_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    try:
+        current_user.last_online_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(current_user)
+        return current_user
+    except Exception as e:
+        import traceback
+        print(f"ERROR in /users/me: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Profile error: {str(e)}"
+        )
 
 
 @router.patch(

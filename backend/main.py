@@ -30,9 +30,79 @@ from app.health.services.reminder_service import ReminderService
 
 if engine.dialect.name == "postgresql":
     with engine.begin() as connection:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        try:
+            connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        except Exception as e:
+            print(f"Warning: Could not create extension vector: {e}")
+        
         # Alter avatar_url column to TEXT type to handle large base64 images
-        connection.execute(text("ALTER TABLE users ALTER COLUMN avatar_url TYPE TEXT"))
+        try:
+            connection.execute(text("ALTER TABLE users ALTER COLUMN avatar_url TYPE TEXT"))
+        except Exception as e:
+            print(f"Warning: Could not alter avatar_url column: {e}")
+        
+        # Add missing columns one by one, with IF NOT EXISTS
+        missing_columns = [
+            ("wrist_circumference", "DOUBLE PRECISION"),
+            ("ankle_circumference", "DOUBLE PRECISION"),
+            ("underlying_diseases", "TEXT"),
+            ("food_allergies", "TEXT"),
+            ("activity_level", "VARCHAR(50)"),
+            ("other_diseases", "VARCHAR(255)"),
+            ("other_allergies", "VARCHAR(255)"),
+        ]
+        
+        for col_name, col_type in missing_columns:
+            try:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                print(f"Added column {col_name} successfully")
+            except Exception as e:
+                print(f"Warning: Could not add column {col_name}: {e}")
+        
+        # Add support_tickets columns
+        try:
+            connection.execute(text("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS last_admin_read_message_id INTEGER"))
+            print("Added column last_admin_read_message_id to support_tickets successfully")
+        except Exception as e:
+            print(f"Warning: Could not add last_admin_read_message_id: {e}")
+else:
+    # For SQLite
+    with engine.begin() as connection:
+        # Check existing columns for users
+        result = connection.execute(text("PRAGMA table_info(users)"))
+        existing_columns = [row[1] for row in result.fetchall()]
+        print(f"Existing users columns: {existing_columns}")
+        
+        # List of columns to add
+        missing_columns = [
+            ("wrist_circumference", "REAL"),
+            ("ankle_circumference", "REAL"),
+            ("underlying_diseases", "TEXT"),
+            ("food_allergies", "TEXT"),
+            ("activity_level", "VARCHAR(50)"),
+            ("other_diseases", "VARCHAR(255)"),
+            ("other_allergies", "VARCHAR(255)"),
+        ]
+        
+        for col_name, col_type in missing_columns:
+            if col_name not in existing_columns:
+                try:
+                    connection.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                    print(f"Added column {col_name} successfully")
+                except Exception as e:
+                    print(f"Warning: Could not add column {col_name}: {e}")
+        
+        # Check support_tickets columns
+        result = connection.execute(text("PRAGMA table_info(support_tickets)"))
+        existing_support_columns = [row[1] for row in result.fetchall()]
+        print(f"Existing support_tickets columns: {existing_support_columns}")
+        
+        if "last_admin_read_message_id" not in existing_support_columns:
+            try:
+                connection.execute(text("ALTER TABLE support_tickets ADD COLUMN last_admin_read_message_id INTEGER"))
+                print("Added column last_admin_read_message_id to support_tickets successfully")
+            except Exception as e:
+                print(f"Warning: Could not add last_admin_read_message_id to support_tickets: {e}")
 
 Base.metadata.create_all(bind=engine)
 

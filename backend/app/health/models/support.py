@@ -17,6 +17,7 @@ class SupportTicket(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     last_notification_sent_at = Column(DateTime(timezone=True), nullable=True)  # Lần cuối gửi email thông báo admin
+    last_admin_read_message_id = Column(Integer, nullable=True)  # ID tin nhắn cuối mà admin đã xem
     
     user = relationship("User", back_populates="support_tickets")
     messages = relationship(
