@@ -6,8 +6,7 @@ import ChatArea from "../components/chatbot/ChatArea";
 import RightChatSidebar from "../components/chatbot/RightChatSidebar";
 import { incrementNotificationCount } from "../utils/notificationUtils";
 import html2pdf from "html2pdf.js";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
-import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
 
 const STORAGE_PREFIX = "smarthealth_chatbot_conversations";
 const ACTIVE_SESSION_PREFIX = "chat_session_id";
@@ -106,15 +105,7 @@ const ChatPage = () => {
   const [editTitle, setEditTitle] = useState("");
   const [chatLimit, setChatLimit] = useState({ count: 0, limit: 10, resetAt: null });
 
-  const fetchChatLimit = useCallback(async () => {
-    if (!isAuthenticated || !user?.id) return;
-    try {
-      const res = await api.get("/health/chat/limit");
-      setChatLimit(res.data);
-    } catch (err) {
-      console.error("Error fetching chat limit:", err);
-    }
-  }, [isAuthenticated, user?.id]);
+
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -126,9 +117,8 @@ const ChatPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchChatLimit();
     fetchDocuments();
-  }, [fetchChatLimit, fetchDocuments]);
+  }, [ fetchDocuments]);
 
   const activeConversation = useMemo(() => {
     return (
@@ -283,65 +273,101 @@ const ChatPage = () => {
 
     try {
       if (format === "pdf") {
-        // Create temporary element for PDF rendering
-        const element = document.createElement("div");
-        element.style.padding = "20px";
-        element.style.fontFamily = "Arial, sans-serif";
-        element.style.lineHeight = "1.6";
+        // Use html2pdf to ensure Vietnamese font support.
+        // To avoid 'oklch' color errors and avoid empty PDFs, we use a hidden iframe.
+        // This provides a completely clean document context without Tailwind's global CSS.
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.width = "800px"; // Give it a fixed width for consistent rendering
+        iframe.style.height = "1000px";
+        iframe.style.left = "-10000px";
+        iframe.style.top = "0";
+        document.body.appendChild(iframe);
 
-        let htmlContent = `<h1 style="text-align: center; color: #333; margin-bottom: 20px;">${chatTitle}</h1>`;
+        const frameDoc = iframe.contentWindow.document;
+        frameDoc.open();
+        
+        let htmlContent = `
+          <html>
+            <head>
+              <style>
+                body { 
+                  background-color: white; 
+                  color: #1e293b; 
+                  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+                  padding: 30px; 
+                  line-height: 1.6; 
+                }
+                h1 { 
+                  text-align: center; 
+                  color: #0f172a; 
+                  margin-bottom: 24px; 
+                  font-size: 22px; 
+                  border-bottom: 2px solid #e2e8f0; 
+                  padding-bottom: 12px; 
+                }
+                .message { 
+                  margin-bottom: 16px; 
+                  border-bottom: 1px solid #f1f5f9; 
+                  padding-bottom: 12px; 
+                }
+                .sender { 
+                  font-weight: 700; 
+                  font-size: 13px; 
+                  text-transform: uppercase; 
+                  letter-spacing: 0.5px; 
+                  display: block; 
+                  margin-bottom: 4px; 
+                }
+                .text-content { 
+                  white-space: pre-wrap; 
+                  font-size: 14px; 
+                  color: #334155;
+                }
+              </style>
+            </head>
+            <body>
+              <h1>${chatTitle}</h1>
+        `;
         
         chatMessages.forEach((msg) => {
           const sender = msg.from === "user" ? "Người dùng" : "Baymax";
-          const senderColor = msg.from === "user" ? "#e11d48" : "#4b5563";
+          const senderColor = msg.from === "user" ? "#e11d48" : "#0284c7";
           htmlContent += `
-            <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
-              <strong style="color: ${senderColor}">${sender}:</strong> 
-              <span>${msg.text}</span>
+            <div class="message">
+              <span class="sender" style="color: ${senderColor}">${sender}</span> 
+              <div class="text-content">${msg.text}</div>
             </div>
           `;
         });
 
-        element.innerHTML = htmlContent;
-        document.body.appendChild(element);
+        htmlContent += `</body></html>`;
+        frameDoc.write(htmlContent);
+        frameDoc.close();
 
         const opt = {
           margin: [10, 10, 10, 10],
           filename: filename,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { 
+            scale: 2, 
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            logging: false,
+            // Use the iframe's body as the target
+            onclone: (document) => {
+              // No extra modifications needed as iframe is already clean
+            }
+          },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        await html2pdf().set(opt).from(element).save();
-        document.body.removeChild(element);
-      } else if (format === "docx") {
-        const docChildren = [
-          new Paragraph({
-            text: chatTitle,
-            heading: HeadingLevel.HEADING_1,
-          }),
-          new Paragraph({ text: "" }), // Spacer
-        ];
-
-        chatMessages.forEach((msg) => {
-          const sender = msg.from === "user" ? "Người dùng" : "Baymax";
-          docChildren.push(
-            new Paragraph({
-              children: [
-                new TextRun({ text: `${sender}: `, bold: true }),
-                new TextRun(msg.text),
-              ],
-            })
-          );
-        });
-
-        const doc = new Document({
-          sections: [{ children: docChildren }],
-        });
-
-        const blob = await Packer.toBlob(doc);
-        saveAs(blob, filename);
+        try {
+          // Capture the body of the iframe
+          await html2pdf().set(opt).from(frameDoc.body).save();
+        } finally {
+          document.body.removeChild(iframe);
+        }
       }
     } catch (error) {
       console.error("Export Error:", error);
@@ -525,7 +551,6 @@ const ChatPage = () => {
       applyBotUpdate({ isStreaming: false });
 
       incrementNotificationCount(1, user?.id);
-      fetchChatLimit();
     } catch (error) {
       console.error("Chat Error:", error);
       updateConversation(sessionId, (c) => ({

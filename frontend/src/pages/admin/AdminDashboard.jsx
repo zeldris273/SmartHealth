@@ -920,8 +920,7 @@ const AdminDashboard = () => {
           )}
 
            {activeItem === "stats" && (
-             <div className="flex-1 overflow-y-auto min-h-0 space-y-6 pb-6">
-               <div className="flex items-center justify-between mb-2">
+              <div className="flex-1 overflow-y-auto scrollbar-none min-h-0 space-y-6 pb-6">               <div className="flex items-center justify-between mb-2">
                  <h3 className="text-lg font-semibold text-slate-900">Chi tiết thống kê</h3>
                  <button
                    onClick={exportToPDF}
