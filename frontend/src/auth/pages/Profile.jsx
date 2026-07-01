@@ -6,14 +6,14 @@ import Input from '../components/Input';
 import Modal from '../../components/common/Modal';
 import PasswordStrength from '../components/PasswordStrength';
 import { 
-  User, Mail, Shield, LogOut, HeartPulse, 
+  User, Mail, Shield, HeartPulse, 
   Settings, Phone, MapPin, Calendar, CreditCard, Key, Activity, Check, X, Camera, Lock
 } from 'lucide-react';
 import api from '../../services/api';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, logout, updateProfile, changePassword, downloadHealthReport } = useAuth();
+  const { user, updateProfile, changePassword, downloadHealthReport } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [latestBMI, setLatestBMI] = useState(null);
@@ -303,14 +303,7 @@ const Profile = () => {
                       Chỉnh sửa Hồ sơ
                     </Button>
                   )}
-                  <Button 
-                    variant="secondary" 
-                    onClick={logout}
-                    className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
-                  >
-                    <LogOut size={18} className="mr-2" />
-                    Đăng xuất
-                  </Button>
+                  
                   {!isEditing && (
                     <Button 
                       variant="secondary" 
@@ -786,39 +779,45 @@ const Profile = () => {
                         <div className="space-y-2 text-sm">
                           <div className="flex flex-col gap-1">
                             <span className="text-slate-500 font-medium">Bệnh nền:</span>
-                            <span className="text-slate-800">
-                              {user?.underlying_diseases?.length > 0 
-                                ? (user.underlying_diseases.map(id => {
-                                    if (id === 'none_disease') return 'Không có';
-                                    if (id === 'other') return `Khác (${user.other_diseases || 'không rõ'})`;
-                                    const map = {
-                                      diabetes: 'Tiểu đường',
-                                      hypertension: 'Huyết áp cao',
-                                      heart_disease: 'Tim mạch',
-                                      hyperlipidemia: 'Mỡ máu cao',
-                                      stomach_issue: 'Dạ dày'
-                                    };
-                                    return map[id] || id;
-                                  }).join(', '))
-                                : 'Chưa cung cấp'}
-                            </span>
+                        <span className="text-slate-800">
+                          {(() => {
+                            const diseases = user?.underlying_diseases ? (typeof user.underlying_diseases === 'string' ? JSON.parse(user.underlying_diseases) : user.underlying_diseases) : [];
+                            return diseases.length > 0 
+                              ? (diseases.map(id => {
+                                  if (id === 'none_disease') return 'Không có';
+                                  if (id === 'other') return `Khác (${user.other_diseases || 'không rõ'})`;
+                                  const map = {
+                                    diabetes: 'Tiểu đường',
+                                    hypertension: 'Huyết áp cao',
+                                    heart_disease: 'Tim mạch',
+                                    hyperlipidemia: 'Mỡ máu cao',
+                                    stomach_issue: 'Dạ dày'
+                                  };
+                                  return map[id] || id;
+                                }).join(', '))
+                              : 'Chưa cung cấp';
+                          })()}
+                        </span>
                           </div>
                           <div className="flex flex-col gap-1">
                             <span className="text-slate-500 font-medium">Dị ứng:</span>
                             <span className="text-slate-800">
-                              {user?.food_allergies?.length > 0 
-                                ? (user.food_allergies.map(id => {
-                                    if (id === 'none_allergy') return 'Không có';
-                                    if (id === 'other') return `Khác (${user.other_allergies || 'không rõ'})`;
-                                    const map = {
-                                      seafood: 'Hải sản',
-                                      peanuts: 'Đậu phộng',
-                                      dairy: 'Sữa',
-                                      gluten: 'Gluten'
-                                    };
-                                    return map[id] || id;
-                                  }).join(', '))
-                                : 'Chưa cung cấp'}
+                              {(() => {
+                                const allergies = user?.food_allergies ? (typeof user.food_allergies === 'string' ? JSON.parse(user.food_allergies) : user.food_allergies) : [];
+                                return allergies.length > 0 
+                                  ? (allergies.map(id => {
+                                      if (id === 'none_allergy') return 'Không có';
+                                      if (id === 'other') return `Khác (${user.other_allergies || 'không rõ'})`;
+                                      const map = {
+                                        seafood: 'Hải sản',
+                                        peanuts: 'Đậu phộng',
+                                        dairy: 'Sữa',
+                                        gluten: 'Gluten'
+                                      };
+                                      return map[id] || id;
+                                    }).join(', '))
+                                  : 'Chưa cung cấp';
+                              })()}
                             </span>
                           </div>
                           <div className="flex flex-col gap-1">

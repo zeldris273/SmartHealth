@@ -55,9 +55,7 @@ export const AuthProvider = ({ children }) => {
 
   const refreshProfile = async () => {
     try {
-      console.log("Refreshing user profile...");
       const updatedUser = await getProfileAPI();
-      console.log("Profile refreshed:", updatedUser);
       if (updatedUser?.id) {
         setUser(updatedUser);
         // Cache the updated profile
@@ -74,10 +72,8 @@ export const AuthProvider = ({ children }) => {
     let mounted = true;
     const initAuth = async () => {
       const token = getStoredToken();
-      console.log('Initializing auth with token:', token ? 'Yes' : 'No');
       
       if (!token) {
-        console.log('No token found - clearing auth state');
         if (mounted) setIsLoading(false);
         return;
       }
@@ -89,7 +85,6 @@ export const AuthProvider = ({ children }) => {
         try {
           const parsedProfile = JSON.parse(storedProfile);
           if (parsedProfile?.id && mounted) {
-            console.log('Using cached user profile');
             setUser(parsedProfile);
             setIsAuthenticated(true);
             hasValidStoredProfile = true;
@@ -101,10 +96,8 @@ export const AuthProvider = ({ children }) => {
 
       // Then try to validate token and get fresh profile from server
       try {
-        console.log('Fetching fresh user profile...');
         const userProfile = await getProfileAPI();
         if (mounted && userProfile?.id) {
-          console.log('Profile fetched successfully:', userProfile);
           setUser(userProfile);
           setIsAuthenticated(true);
           hasValidStoredProfile = true;
@@ -185,11 +178,9 @@ export const AuthProvider = ({ children }) => {
     let shouldReconnect = true;
 
     const connect = () => {
-      console.log('Admin: Connecting to support WebSocket...');
       wsRef.current = new WebSocket(`${getSupportWsUrl()}?token=${encodeURIComponent(token)}`);
 
       wsRef.current.onopen = () => {
-        console.log('Admin: WebSocket connected');
         setIsAdminOnline(true);
       };
 
@@ -198,7 +189,6 @@ export const AuthProvider = ({ children }) => {
         if (payload.type === 'admin_status') {
           setIsAdminOnline(payload.is_admin_online);
         } else if (['ticket_created', 'message_created'].includes(payload.type)) {
-          console.log('Admin: Received new notification via WebSocket');
           window.dispatchEvent(new CustomEvent('notification:new', { detail: { count: 1 } }));
         }
       };
@@ -208,7 +198,6 @@ export const AuthProvider = ({ children }) => {
       };
 
       wsRef.current.onclose = () => {
-        console.log('Admin: WebSocket disconnected');
         setIsAdminOnline(false);
         if (shouldReconnect) {
           reconnectTimerRef.current = setTimeout(connect, 3000);
@@ -232,12 +221,9 @@ export const AuthProvider = ({ children }) => {
   }, [isAuthenticated, user?.id, user?.role]);
 
   const login = async (credentials, rememberMe = false) => {
-    console.log('Login function called with rememberMe:', rememberMe);
     setIsLoading(true);
     try {
-      console.log('Calling login API with credentials:', credentials);
       const data = await loginAPI(credentials);
-      console.log('Login API response:', data);
       const token = data?.access_token || data?.token;
       const refreshToken = data?.refresh_token;
 
@@ -245,11 +231,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Login response did not include an access token');
       }
 
-      console.log('Token received, saving...');
       saveToken(token, rememberMe);
-      console.log('Fetching user profile...');
       const userProfile = await getProfileAPI();
-      console.log('User profile received:', userProfile);
 
       if (!userProfile?.id) {
         throw new Error('Failed to fetch user profile after login');
@@ -275,11 +258,9 @@ export const AuthProvider = ({ children }) => {
 
   // Google login handling
   const googleLogin = async (googleToken, rememberMe = false) => {
-    console.log('Google login invoked');
     setIsLoading(true);
     try {
       const data = await googleLoginAPI(googleToken);
-      console.log('Google login API response:', data);
       const token = data?.access_token || data?.token;
       const refreshToken = data?.refresh_token;
       if (!token) {
@@ -288,7 +269,6 @@ export const AuthProvider = ({ children }) => {
       // Save token similar to normal login (refresh_token already set in HttpOnly cookie by backend)
       saveToken(token, rememberMe);
       const userProfile = await getProfileAPI();
-      console.log('User profile after Google login:', userProfile);
       if (!userProfile?.id) {
         throw new Error('Failed to fetch user profile after Google login');
       }
@@ -369,9 +349,7 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     setIsLoading(true);
     try {
-      console.log('Updating profile with data:', profileData);
       const updatedData = await updateProfileAPI(profileData);
-      console.log('Received updated data from backend:', updatedData);
       setUser(updatedData);
       // Cập nhật localStorage với dữ liệu mới
       localStorage.setItem('user_profile', JSON.stringify(updatedData));

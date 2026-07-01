@@ -241,16 +241,6 @@ const ChatSidebar = ({
                   <FileDown size={14} />
                   <span>Xuất file PDF</span>
                 </button>
-                <button
-                  onClick={() => {
-                    onExportChat("docx");
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  <FileDown size={14} />
-                  <span>Xuất file DOCX</span>
-                </button>
                 <div className="border-t border-gray-100 my-1"></div>
                
               </div>

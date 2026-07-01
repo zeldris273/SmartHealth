@@ -29,11 +29,9 @@ const navItems = [
 
       const fetchInitialCount = async () => {
         try {
-          console.log("Header: Fetching initial unread count...");
           const response = await api.get("/support/admin/unread-count");
           const count = response.data;
-          console.log("Header: Received unread count:", count);
-          setNotificationCount(count);
+            setNotificationCount(count);
           if (user?.id) {
             const notifKey = `notifications_count_${user.id}`;
             localStorage.setItem(notifKey, String(count));
