@@ -35,6 +35,7 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import ChatBubble from "../../components/chatbot/ChatBubble";
 import Modal from "../../components/common/Modal";
+import { useAuth } from "../../auth/context/AuthContext";
 
 const getSupportWsUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -91,7 +92,16 @@ const isNotificationSupported = () =>
   typeof window !== "undefined" && "Notification" in window;
 
 const AdminDashboard = () => {
-  const [activeItem, setActiveItem] = useState("cskh");
+  const { user, updateProfile } = useAuth();
+  const [activeItem, setActiveItem] = useState(() => {
+    // Lấy activeItem từ localStorage, mặc định là cskh
+    return localStorage.getItem('admin_active_item') || "cskh";
+  });
+
+  // Lưu activeItem vào localStorage khi thay đổi
+  useEffect(() => {
+    localStorage.setItem('admin_active_item', activeItem);
+  }, [activeItem]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -1203,9 +1213,38 @@ const AdminDashboard = () => {
                 <h3 className="text-lg font-semibold text-slate-900 mb-6">
                   Cài đặt hệ thống
                 </h3>
-                <p className="text-gray-500">
-                  Phần cài đặt sẽ được cập nhật sau.
-                </p>
+                
+                <div className="space-y-6">
+                  {/* Email Notification Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                      <h4 className="font-medium text-slate-900">Nhận email thông báo</h4>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Nhận email khi có user gửi tin nhắn mới (khi bạn đang online)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                          const newStatus = !user?.email_notification_enabled;
+                          await updateProfile({
+                            email_notification_enabled: newStatus
+                          });
+                        } catch (error) {
+                          console.error('Failed to update email notification setting:', error);
+                        }
+                      }}
+                      className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${user?.email_notification_enabled ? 'bg-red-500' : 'bg-gray-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-7 w-7 translate-x-0 rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${user?.email_notification_enabled ? 'translate-x-6' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

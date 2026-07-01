@@ -69,6 +69,7 @@ class User(Base):
     bmi_reminder_enabled = Column(Boolean, default=False, comment="Bật/tắt nhắc nhở cập nhật BMI")
     bmi_reminder_frequency = Column(String(20), default="weekly", comment="Tần suất nhắc nhở: daily, weekly")
     last_notification_sent_at = Column(DateTime(timezone=True), nullable=True, comment="Thời gian gửi thông báo cuối cùng")
+    email_notification_enabled = Column(Boolean, default=True, comment="Bật/tắt nhận email thông báo khi user gửi tin nhắn (khi admin online)")
     
     # ---- Tình trạng sức khỏe ----
     wrist_circumference = Column(Float, nullable=True, comment="Vòng cổ tay (cm)")

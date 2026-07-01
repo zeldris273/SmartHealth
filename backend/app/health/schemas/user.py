@@ -59,6 +59,7 @@ class UserProfileUpdate(BaseModel):
     fitness_goal: Literal["lose_weight", "gain_weight", "maintain_weight", "gain_muscle"] | None = None
     bmi_reminder_enabled: bool | None = None
     bmi_reminder_frequency: Literal["daily", "weekly"] | None = None
+    email_notification_enabled: bool | None = None
     underlying_diseases: str | None = None
     food_allergies: str | None = None
     activity_level: str | None = None
@@ -98,6 +99,7 @@ class UserResponse(BaseModel):
     other_allergies: str | None = None
     wrist_circumference: float | None = None
     ankle_circumference: float | None = None
+    email_notification_enabled: bool = True
     
     model_config = ConfigDict(from_attributes=True)
 

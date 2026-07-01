@@ -30,7 +30,8 @@ const CSKHChatWidget = () => {
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [currentTicket, setCurrentTicket] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const lastAdminMessageIdRef = useRef(null); // Dùng useRef để cập nhật ngay lập tức
+  // Lấy lastAdminMessageId từ localStorage khi component mount
+  const lastAdminMessageIdRef = useRef(localStorage.getItem('last_admin_message_id')); 
   const [showOfflineAutoMessage, setShowOfflineAutoMessage] = useState(false);
   const bottomRef = useRef(null);
   const isOpenRef = useRef(false);
@@ -61,19 +62,38 @@ const CSKHChatWidget = () => {
         if (adminMessages.length > 0) {
           const latestAdminMsg = adminMessages[adminMessages.length - 1];
           
-          // First time - just save the last ID
+          // First time - count initial unread
           if (lastAdminMessageIdRef.current === null) {
             lastAdminMessageIdRef.current = latestAdminMsg.id;
+            localStorage.setItem('last_admin_message_id', latestAdminMsg.id);
+            // Không set unread ban đầu vì là lần đầu vào
           } 
           // New message received (so sánh dưới dạng String)
           else if (String(latestAdminMsg.id) !== String(lastAdminMessageIdRef.current)) {
+            // Đếm số tin nhắn mới chưa đọc
+            let newUnread = 0;
+            let found = false;
+            // Duyệt từ cuối lên đầu để đếm tin nhắn mới
+            for (let i = adminMessages.length - 1; i >= 0; i--) {
+              if (String(adminMessages[i].id) === String(lastAdminMessageIdRef.current)) {
+                found = true;
+                break;
+              }
+              newUnread++;
+            }
+            // Nếu không tìm thấy, tức có nhiều tin nhắn mới, đếm tất cả
+            if (!found) {
+              newUnread = adminMessages.length;
+            }
+            
             lastAdminMessageIdRef.current = latestAdminMsg.id;
+            localStorage.setItem('last_admin_message_id', latestAdminMsg.id);
             // Hide auto message when new admin message arrives
             setShowOfflineAutoMessage(false);
             
             // Only update unread count and show notification if chat is closed
             if (!isOpenRef.current) {
-              setUnreadCount(prev => prev + 1);
+              setUnreadCount(prev => prev + newUnread);
               
               if (isNotificationSupported() && Notification.permission === 'granted') {
                 if (window.currentNotification) {
@@ -248,6 +268,15 @@ const CSKHChatWidget = () => {
     
     setIsOpen(true);
     setUnreadCount(0);
+    // Cập nhật lastAdminMessageIdRef và localStorage khi mở chat (đánh dấu đã đọc)
+    if (currentTicket) {
+      const adminMessages = currentTicket.messages?.filter(msg => msg.sender_id !== currentTicket.user_id) || [];
+      if (adminMessages.length > 0) {
+        const latestAdminMsg = adminMessages[adminMessages.length - 1];
+        lastAdminMessageIdRef.current = latestAdminMsg.id;
+        localStorage.setItem('last_admin_message_id', latestAdminMsg.id);
+      }
+    }
     
     if (isNotificationSupported() && Notification.permission === 'default' && !hasAskedPermissionRef.current) {
       hasAskedPermissionRef.current = true;

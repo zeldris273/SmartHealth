@@ -67,7 +67,9 @@ async def google_oauth_callback(request: Request, response: Response, db: Sessio
         db.refresh(user)
     else:
         user.google_id = google_id
-        user.avatar_url = avatar_url
+        # Only update avatar from Google if user doesn't have one already
+        if not user.avatar_url:
+            user.avatar_url = avatar_url
         user.auth_provider = "google"
         db.commit()
 
