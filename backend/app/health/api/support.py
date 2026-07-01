@@ -279,22 +279,65 @@ async def send_message_to_ticket(
     db.refresh(new_message)
     db.refresh(new_message, attribute_names=["sender"])
     
-    # Kiểm tra xem admin có offline không và có cần gửi email không
-    if not is_admin_online(db):
+    # Kiểm tra xem có cần gửi email không
+    now = datetime.now(timezone.utc)
+    # Cooldown 30 giây để test nhanh
+    cooldown_minutes = 0.5
+    should_send_email = False
+    
+    # Lấy danh sách admin và kiểm tra preference của họ
+    admins = db.query(User).filter(User.role == "admin").all()
+    print(f"[DEBUG] Found {len(admins)} admins")
+    for admin in admins:
+        print(f"[DEBUG] Admin {admin.email}: email_notification_enabled={admin.email_notification_enabled}")
+    
+    admin_is_online = is_admin_online(db)
+    print(f"[DEBUG] Admin online status: {admin_is_online}")
+    
+    if not admin_is_online:
+        # Admin offline: luôn gửi email cho tất cả admin
+        should_send_email = True
+        print(f"[DEBUG] Admin offline, should_send_email=True")
+    else:
+        # Admin online: kiểm tra xem có admin nào bật email_notification_enabled không
+        has_enabled_admin = any(admin.email_notification_enabled for admin in admins)
+        print(f"[DEBUG] Has enabled admin: {has_enabled_admin}")
+        if has_enabled_admin:
+            # Kiểm tra cooldown
+            time_since_last_notification = None
+            if ticket.last_notification_sent_at:
+                time_since_last_notification = (now - ticket.last_notification_sent_at).total_seconds()
+            print(f"[DEBUG] Time since last notification: {time_since_last_notification} seconds")
+            if (not ticket.last_notification_sent_at or 
+                time_since_last_notification > cooldown_minutes * 60):
+                should_send_email = True
+                print(f"[DEBUG] Cooldown passed, should_send_email=True")
+    
+    if should_send_email:
         # Cập nhật thời gian gửi email cuối cùng
-        ticket.last_notification_sent_at = datetime.now(timezone.utc)
+        ticket.last_notification_sent_at = now
         db.commit()
-        admin_emails = get_admin_emails(db)
         
-        # Thêm background task để gửi email
-        background_tasks.add_task(
-            send_admin_notification_task,
-            admin_emails=admin_emails,
-            user_full_name=current_user.full_name,
-            user_email=current_user.email,
-            ticket_subject=ticket.subject,
-            message_content=message.content
-        )
+        # Xác định danh sách admin để gửi email
+        if not admin_is_online:
+            # Admin offline: gửi cho tất cả admin có email
+            admin_emails = [admin.email for admin in admins if admin.email]
+            print(f"[DEBUG] Admin offline, sending to all admins: {admin_emails}")
+        else:
+            # Admin online: chỉ gửi cho admin nào bật email_notification_enabled = True
+            admin_emails = [admin.email for admin in admins if admin.email and admin.email_notification_enabled]
+            print(f"[DEBUG] Admin online, sending to enabled admins: {admin_emails}")
+        
+        if admin_emails:
+            # Thêm background task để gửi email
+            background_tasks.add_task(
+                send_admin_notification_task,
+                admin_emails=admin_emails,
+                user_full_name=current_user.full_name,
+                user_email=current_user.email,
+                ticket_subject=ticket.subject,
+                message_content=message.content
+            )
     
     await broadcast_ticket_event(ticket, "message_created")
     return new_message
