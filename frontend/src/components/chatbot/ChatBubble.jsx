@@ -1,5 +1,12 @@
-import { Headphones } from "lucide-react";
+import { Headphones, Paperclip } from "lucide-react";
 import BaymaxLogo from "../BaymaxLogo";
+
+const formatFileSize = (size) => {
+  if (!size) return "0 B";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 const ChatBubble = ({ message, isAdminView = false }) => {
   const isBot = message.from === "bot";
@@ -89,6 +96,64 @@ const ChatBubble = ({ message, isAdminView = false }) => {
                 <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-red-400 align-middle" />
               )}
             </>
+          )}
+
+          {message.attachments && message.attachments.length > 0 && (
+            <div className={`mt-2 space-y-1.5 border-t pt-2 ${
+              onRight ? "border-white/20" : "border-gray-300"
+            }`}>
+              {message.attachments.map((file, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col gap-1 rounded-lg p-2 text-xs ${
+                    onRight
+                      ? "bg-white/10 text-white"
+                      : "bg-white text-gray-700 border border-gray-100 shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Paperclip size={12} className="flex-shrink-0" />
+                      <span className="truncate font-medium">{file.name}</span>
+                    </div>
+                    <span className="text-[10px] opacity-75 flex-shrink-0">
+                      {file.sizeLabel || formatFileSize(file.size)}
+                    </span>
+                  </div>
+
+                  {file.status === "uploading" && (
+                    <div className="w-full mt-1">
+                      <div className="flex justify-between text-[9px] mb-0.5 opacity-80">
+                        <span>Đang tải lên...</span>
+                        <span>{file.progress || 0}%</span>
+                      </div>
+                      <div className="w-full bg-black/10 dark:bg-white/20 rounded-full h-1">
+                        <div
+                          className={`h-1 rounded-full ${onRight ? 'bg-white' : 'bg-red-500'}`}
+                          style={{ width: `${file.progress || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {file.status === "processed" && (
+                    <span className={`text-[9px] font-semibold flex items-center gap-1 ${
+                      onRight ? "text-emerald-200" : "text-emerald-600"
+                    }`}>
+                      ✓ Đã nhận {file.chunkCount ? `(${file.chunkCount} đoạn)` : ""}
+                    </span>
+                  )}
+
+                  {file.status === "failed" && (
+                    <span className={`text-[9px] font-semibold flex items-center gap-1 ${
+                      onRight ? "text-red-200" : "text-red-600"
+                    }`}>
+                      ✕ Thất bại: File không hợp lệ hoặc không liên quan
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
         {isBot && uniqueSources.length > 0 && !message.isStreaming && (

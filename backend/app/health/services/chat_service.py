@@ -119,6 +119,7 @@ def build_prompt(
     history: list[ChatHistoryItem] | None = None,
     health_context: str | None = None,
     retrieved_context: str | None = None,
+    active_filenames: list[str] | None = None,
 ) -> str:
     history = history or []
     history_text = "\n".join(f"{item.role}: {item.content}" for item in history[-10:])
@@ -132,13 +133,21 @@ def build_prompt(
     health_context = health_context or bmi_text
     retrieved_context = retrieved_context or "Không có tài liệu liên quan được truy xuất."
 
+    if active_filenames:
+        files_text = "Danh sách tài liệu người dùng đã tải lên hệ thống:\n" + "\n".join(f"- {name}" for name in active_filenames)
+    else:
+        files_text = "Người dùng chưa tải lên tài liệu nào."
+
     return f"""
 Bạn là chatbot hỗ trợ sức khỏe cho hệ thống SmartHealth.
 
 Nguyên tắc bắt buộc:
 - Chỉ trả lời câu hỏi liên quan đến sức khỏe, y tế, BMI, cân nặng, calories, dinh dưỡng, luyện tập và lối sống lành mạnh, hoặc các câu hỏi liên quan đến việc quản lý/truy vấn tài liệu sức khỏe đã tải lên.
-- Nếu người dùng thông báo đã tải lên file hoặc yêu cầu tiếp nhận file, hãy phản hồi xác nhận đã nhận được file và sẵn sàng hỗ trợ phân tích nội dung đó.
-- Nếu người dùng yêu cầu kiểm tra file .docx, hãy đối chiếu nội dung trong "Ngữ cảnh tài liệu truy xuất" để xác nhận thông tin có chính xác và phù hợp với lĩnh vực y tế hay không.
+    - Khi người dùng thông báo đã tải lên file, yêu cầu tiếp nhận file, hoặc hỏi về file họ vừa gửi: 
+      1. Đầu tiên, hãy kiểm tra "Danh sách tài liệu người dùng đã tải lên hệ thống". 
+      2. Nếu trong danh sách có file (bất kể "Ngữ cảnh tài liệu truy xuất" có trống hay không), BẮT BUỘC phải xác nhận là đã nhận được file (ví dụ: "Tôi đã nhận được file [tên file], tôi đã sẵn sàng phân tích nội dung này cho bạn").
+      3. TUYỆT ĐỐI KHÔNG yêu cầu người dùng tải lên file nếu file đó đã xuất hiện trong danh sách tài liệu đã tải lên.
+    - Nếu người dùng yêu cầu phân tích chi tiết hoặc hỏi nội dung cụ thể trong file, hãy sử dụng thông tin trong "Ngữ cảnh tài liệu truy xuất". Nếu ngữ cảnh trống, hãy thông báo rằng bạn đã nhận file nhưng cần câu hỏi cụ thể hơn để trích xuất nội dung chính xác.
 - Nếu câu hỏi hoàn toàn nằm ngoài lĩnh vực y tế/sức khỏe và không liên quan đến tài liệu, chỉ trả lời đúng câu: "{OFF_TOPIC_RESPONSE}"
 - Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thực tế.
 - Không chẩn đoán chắc chắn bệnh.
@@ -149,6 +158,9 @@ Nguyên tắc bắt buộc:
 
 Thông tin sức khỏe cá nhân:
 {health_context}
+
+Tài liệu đã tải lên của người dùng:
+{files_text}
 
 Ngữ cảnh tài liệu truy xuất từ pgvector:
 {retrieved_context}
@@ -202,6 +214,7 @@ async def ask_ai_stream(
     history: list[ChatHistoryItem] | None = None,
     health_context: str | None = None,
     retrieved_context: str | None = None,
+    active_filenames: list[str] | None = None,
 ):
     if is_dangerous_question(message):
         yield DANGEROUS_RESPONSE
@@ -217,6 +230,7 @@ async def ask_ai_stream(
         history=history,
         health_context=health_context,
         retrieved_context=retrieved_context,
+        active_filenames=active_filenames,
     )
     
     try:
@@ -261,6 +275,7 @@ def ask_ai(
     history: list[ChatHistoryItem] | None = None,
     health_context: str | None = None,
     retrieved_context: str | None = None,
+    active_filenames: list[str] | None = None,
 ) -> AIResult:
     if is_dangerous_question(message):
         provider = get_ai_provider()
@@ -276,6 +291,7 @@ def ask_ai(
         history=history,
         health_context=health_context,
         retrieved_context=retrieved_context,
+        active_filenames=active_filenames,
     )
     provider = get_ai_provider()
 
