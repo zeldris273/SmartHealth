@@ -16,6 +16,17 @@ const ChatBubble = ({ message, isAdminView = false }) => {
     : [];
 
 
+  const avatarUrl = message.avatarUrl;
+  const senderName = message.senderName || "U";
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const trimmed = name.trim();
+    if (!trimmed) return "U";
+    const parts = trimmed.split(/\s+/);
+    return parts[parts.length - 1].charAt(0).toUpperCase();
+  };
+
   const isFromAssistant = isBot || isAdmin;
   const onRight = isAdminView ? isAdmin : !isFromAssistant;
 
@@ -33,13 +44,17 @@ const ChatBubble = ({ message, isAdminView = false }) => {
     <div className={`flex ${onRight ? "justify-end" : "justify-start"}`}>
       {/* Show avatar for "others" */}
       {!onRight && (
-        <div className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+        <div className={`mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+          (!isBot && !isAdmin && avatarUrl) ? "bg-transparent" : "bg-red-100"
+        }`}>
           {isBot ? (
             <BaymaxLogo size={20} />
           ) : isAdmin ? (
             <Headphones size={18} className="text-red-600" />
+          ) : avatarUrl ? (
+            <img src={avatarUrl} alt="User Avatar" className="h-8 w-8 rounded-full object-cover" />
           ) : (
-            <span className="text-xs font-bold text-blue-500">U</span>
+            <span className="text-xs font-bold text-blue-500">{getInitials(senderName)}</span>
           )}
         </div>
       )}
