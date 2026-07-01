@@ -31,3 +31,20 @@ class RetrievedChunkResponse(BaseModel):
     chunk_index: int
     content: str = Field(..., description="Relevant chunk content")
     score: float = Field(..., description="Cosine similarity score")
+
+
+class ChunkContentResponse(BaseModel):
+    index: int
+    content: str
+
+
+class DocumentContentResponse(BaseModel):
+    id: int
+    filename: str
+    chunk_count: int
+    created_at: datetime
+    is_deleted: bool
+    chunks: list[ChunkContentResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+

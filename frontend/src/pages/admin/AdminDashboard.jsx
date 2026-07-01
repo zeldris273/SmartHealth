@@ -14,6 +14,7 @@ import {
   PieChart as PieChartIcon,
   BarChart as BarChartIcon,
   Target,
+  Search,
 } from "lucide-react";
 import {
   PieChart,
@@ -106,6 +107,10 @@ const AdminDashboard = () => {
   const [documentToDelete, setDocumentToDelete] = useState(null);
   const [statsData, setStatsData] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [docSearchQuery, setDocSearchQuery] = useState("");
+  const [selectedDocumentForView, setSelectedDocumentForView] = useState(null);
+  const [viewingDocContent, setViewingDocContent] = useState(null);
+  const [docContentLoading, setDocContentLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const selectedTicketRef = useRef(null);
   const lastNotifiedTicketIdRef = useRef(null);
@@ -187,6 +192,25 @@ const AdminDashboard = () => {
       setDocumentLoading(false);
     }
   }, []);
+
+  const loadDocumentContent = useCallback(async (docId) => {
+    try {
+      setDocContentLoading(true);
+      const response = await api.get(`/health/documents/${docId}/content`);
+      setViewingDocContent(response.data);
+    } catch (error) {
+      console.error("Failed to load document content:", error);
+      toast.error("Không thể tải nội dung tài liệu.");
+    } finally {
+      setDocContentLoading(false);
+    }
+  }, []);
+
+  const handleViewDocument = (doc) => {
+    setSelectedDocumentForView(doc);
+    setViewingDocContent(null);
+    loadDocumentContent(doc.id);
+  };
 
   const loadStats = useCallback(async () => {
     try {
@@ -325,7 +349,7 @@ const AdminDashboard = () => {
     if (!documentToDelete) return;
     try {
       await api.delete(`/health/documents/${documentToDelete.id}`);
-      toast.success(`Tài liệu "${documentToDelete.filename}" đã được xóa mềm.`);
+      toast.success(`Tài liệu "${documentToDelete.filename}" đã được xóa.`);
       loadDocuments();
       setShowDeleteModal(false);
       setDocumentToDelete(null);
@@ -395,6 +419,8 @@ const AdminDashboard = () => {
             from: from,
             text: msg.content,
             createdAt: msg.created_at,
+            avatarUrl: from === "user" ? (msg.sender?.avatar_url || newTicket.user?.avatar_url) : null,
+            senderName: from === "user" ? (msg.sender?.full_name || newTicket.user?.full_name || "Khách hàng") : null,
           };
         });
 
@@ -542,9 +568,14 @@ const AdminDashboard = () => {
     return ticket.status === ticketFilter;
   });
   const filteredDocuments = documents.filter((doc) => {
-    if (documentFilter === "active") return !doc.is_deleted;
-    if (documentFilter === "deleted") return doc.is_deleted;
-    return true;
+    const matchesFilter =
+      documentFilter === "all" ||
+      (documentFilter === "active" && !doc.is_deleted) ||
+      (documentFilter === "deleted" && doc.is_deleted);
+    const matchesSearch = doc.filename
+      .toLowerCase()
+      .includes(docSearchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
   });
   const activeDocumentCount = documents.filter((doc) => !doc.is_deleted).length;
   const deletedDocumentCount = documents.filter((doc) => doc.is_deleted).length;
@@ -625,25 +656,48 @@ const AdminDashboard = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { id: "all", label: "Tất cả" },
-                      { id: "active", label: "Hoạt động" },
-                      { id: "deleted", label: "Đã xóa" },
-                    ].map((filter) => (
-                      <button
-                        key={filter.id}
-                        type="button"
-                        onClick={() => setDocumentFilter(filter.id)}
-                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                          documentFilter === filter.id
-                            ? "border-purple-500 bg-purple-50 text-purple-700"
-                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        {filter.label}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Ô tìm kiếm tài liệu */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm tài liệu..."
+                        value={docSearchQuery}
+                        onChange={(e) => setDocSearchQuery(e.target.value)}
+                        className="pl-9 pr-8 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 w-48 md:w-64 transition-all"
+                      />
+                      {docSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setDocSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-bold"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {[
+                        { id: "all", label: "Tất cả" },
+                        { id: "active", label: "Hoạt động" },
+                        { id: "deleted", label: "Đã xóa" },
+                      ].map((filter) => (
+                        <button
+                          key={filter.id}
+                          type="button"
+                          onClick={() => setDocumentFilter(filter.id)}
+                          className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                            documentFilter === filter.id
+                              ? "border-purple-500 bg-purple-50 text-purple-700"
+                              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -696,9 +750,12 @@ const AdminDashboard = () => {
                             doc.is_deleted ? "bg-red-50 opacity-70" : ""
                           }
                         >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {doc.filename}
-                          </td>
+                          <td 
+                             onClick={() => handleViewDocument(doc)}
+                             className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600 hover:text-purple-900 cursor-pointer hover:underline"
+                           >
+                             {doc.filename}
+                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {doc.is_deleted ? (
                               <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
@@ -1176,6 +1233,78 @@ const AdminDashboard = () => {
             className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
           >
             Xóa
+          </button>
+        </div>
+      </Modal>
+
+      {/* Modal xem chi tiết tài liệu */}
+      <Modal
+        isOpen={selectedDocumentForView !== null}
+        onClose={() => {
+          setSelectedDocumentForView(null);
+          setViewingDocContent(null);
+        }}
+        title={`Chi tiết tài liệu: ${selectedDocumentForView?.filename}`}
+      >
+        <div className="max-h-[60vh] overflow-y-auto pr-1">
+          {docContentLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-gray-500">Đang tải nội dung tài liệu...</p>
+            </div>
+          ) : viewingDocContent ? (
+            <div className="space-y-4">
+              <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 flex flex-col sm:flex-row justify-between text-xs text-purple-700 gap-2">
+                <div>
+                  <span className="font-semibold">Ngày tải lên:</span>{" "}
+                  {new Date(viewingDocContent.created_at).toLocaleString("vi-VN")}
+                </div>
+                <div>
+                  <span className="font-semibold">Tổng số phân đoạn (chunks):</span>{" "}
+                  {viewingDocContent.chunk_count}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-800">
+                  Nội dung chi tiết
+                </h4>
+                {viewingDocContent.chunks && viewingDocContent.chunks.length > 0 ? (
+                  viewingDocContent.chunks.map((chunk) => (
+                    <div 
+                      key={chunk.index} 
+                      className="border border-gray-150 rounded-xl overflow-hidden bg-white shadow-sm"
+                    >
+                      <div className="bg-gray-50 px-3.5 py-2 border-b border-gray-150 flex items-center justify-between text-xs text-gray-600 font-medium">
+                        <span>Đoạn #{chunk.index + 1}</span>
+                      </div>
+                      <div className="p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {chunk.content}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400 italic text-center py-6">
+                    Không tìm thấy nội dung phân đoạn nào cho tài liệu này.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-red-500 text-center py-6">
+              Không thể tải nội dung tài liệu. Vui lòng thử lại.
+            </p>
+          )}
+        </div>
+        <div className="flex justify-end gap-3 mt-6 border-t border-gray-100 pt-4">
+          <button
+            onClick={() => {
+              setSelectedDocumentForView(null);
+              setViewingDocContent(null);
+            }}
+            className="px-5 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-sm transition-all"
+          >
+            Đóng
           </button>
         </div>
       </Modal>

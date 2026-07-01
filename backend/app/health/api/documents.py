@@ -5,7 +5,7 @@ from sqlalchemy.sql import func
 from database import get_db
 from app.health.models import KnowledgeDocument, KnowledgeChunk, User
 from app.health.core.dependencies import get_current_user, require_role
-from app.health.schemas.document import DocumentResponse, DocumentUploadResponse
+from app.health.schemas.document import DocumentResponse, DocumentUploadResponse, DocumentContentResponse
 from app.health.services.rag_service import ingest_upload
 
 router = APIRouter(prefix="/health", tags=["Health - Documents"])
@@ -121,3 +121,35 @@ def delete_document(
 
     db.commit()
     return None
+
+
+@router.get(
+    "/documents/{document_id}/content",
+    response_model=DocumentContentResponse,
+    summary="[Admin] Lấy toàn bộ nội dung (các chunk) của tài liệu",
+    status_code=status.HTTP_200_OK,
+)
+def get_document_content(
+    document_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role("admin")),
+):
+    doc = db.query(KnowledgeDocument).filter(KnowledgeDocument.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+        
+    chunks = (
+        db.query(KnowledgeChunk)
+        .filter(KnowledgeChunk.document_id == document_id)
+        .order_by(KnowledgeChunk.chunk_index.asc())
+        .all()
+    )
+    
+    return {
+        "id": doc.id,
+        "filename": doc.filename,
+        "chunk_count": doc.chunk_count,
+        "created_at": doc.created_at,
+        "is_deleted": doc.is_deleted,
+        "chunks": [{"index": c.chunk_index, "content": c.content} for c in chunks]
+    }
