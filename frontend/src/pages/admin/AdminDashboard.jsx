@@ -445,6 +445,14 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     selectedTicketRef.current = selectedTicket;
+    if (selectedTicket) {
+      sessionStorage.setItem("active_support_ticket_id", String(selectedTicket.id));
+    } else {
+      sessionStorage.removeItem("active_support_ticket_id");
+    }
+    return () => {
+      sessionStorage.removeItem("active_support_ticket_id");
+    };
   }, [selectedTicket]);
 
   useEffect(() => {
@@ -701,7 +709,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-none">
                 {documentLoading ? (
                   <div className="p-6 text-center text-gray-500">
                     Đang tải tài liệu...

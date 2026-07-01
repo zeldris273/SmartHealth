@@ -141,6 +141,15 @@ const CSKHChatWidget = () => {
   }, [isAuthenticated, loadUserTickets]);
 
   useEffect(() => {
+    const handleExternalOpen = () => {
+      openChat();
+    };
+
+    window.addEventListener('open-cskh-chat', handleExternalOpen);
+    return () => window.removeEventListener('open-cskh-chat', handleExternalOpen);
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
@@ -254,6 +263,10 @@ const CSKHChatWidget = () => {
       Notification.requestPermission();
     }
   };
+
+  if (isAuthenticated && user?.role === 'admin') {
+    return null;
+  }
 
   if (!isOpen) {
   return (

@@ -14,9 +14,11 @@ import {
   ArrowRight,
   User,
   Lock,
+  Headphones,
 } from "lucide-react";
 import BaymaxLogo from "../components/BaymaxLogo";
 import HealthTipWidget from "../components/dashboard/HealthTipWidget";
+import CSKHChatWidget from "../components/customerservice/CSKHChatWidget";
 import { useAuth } from "../auth/context/AuthContext";
 import api from "../services/api";
 
@@ -648,12 +650,44 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Customer Service Section */}
+      {user?.role !== 'admin' && (
+        <section
+          className={`px-6 sm:px-8 py-8 max-w-7xl mx-auto pb-16 transition-all duration-700 delay-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+        >
+          <div className="bg-white rounded-3xl p-8 border border-red-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden relative">
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-50 rounded-full blur-3xl opacity-60" />
+            
+            <div className="flex items-center gap-6 relative z-10">
+              <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center shadow-lg shadow-red-200">
+                <Headphones className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-[#1e293b] mb-1">Trung tâm hỗ trợ</h2>
+                <p className="text-gray-500 max-w-md">
+                  Bạn gặp khó khăn khi sử dụng Baymax hoặc cần tư vấn chi tiết hơn về sức khỏe? 
+                  Đội ngũ CSKH của chúng tôi luôn sẵn sàng hỗ trợ bạn.
+                </p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-cskh-chat'))}
+              className="relative z-10 bg-red-500 text-white rounded-full px-8 py-3 text-sm font-semibold hover:bg-red-600 hover:scale-105 transition-all duration-200 shadow-md shadow-red-200 flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" /> Chat với CSKH ngay
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Footer */}
       <footer className="text-center pb-8 px-6">
         <p className="text-xs text-gray-300 italic">
           "I cannot deactivate until you are satisfied with your care." — Baymax
         </p>
       </footer>
+      {user?.role !== 'admin' && <CSKHChatWidget />}
     </div>
   );
 };

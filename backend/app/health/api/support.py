@@ -99,13 +99,15 @@ def get_admin_emails(db: Session) -> list[str]:
     ]
 
 
-async def broadcast_ticket_event(ticket: SupportTicket, event_type: str):
+async def broadcast_ticket_event(ticket: SupportTicket, event_type: str, sender_id: int = None):
     payload = {
         "type": event_type,
         "ticket_id": ticket.id,
         "user_id": ticket.user_id,
         "status": ticket.status,
     }
+    if sender_id is not None:
+        payload["sender_id"] = sender_id
     await support_ws_manager.send_to_admins(payload)
     await support_ws_manager.send_to_user(ticket.user_id, payload)
 
@@ -203,7 +205,7 @@ async def create_ticket(
     
     # Load user relationship
     db.refresh(new_ticket, attribute_names=["user"])
-    await broadcast_ticket_event(new_ticket, "ticket_created")
+    await broadcast_ticket_event(new_ticket, "ticket_created", sender_id=current_user.id)
     return new_ticket
 
 
@@ -296,7 +298,7 @@ async def send_message_to_ticket(
             message_content=message.content
         )
     
-    await broadcast_ticket_event(ticket, "message_created")
+    await broadcast_ticket_event(ticket, "message_created", sender_id=current_user.id)
     return new_message
 
 
@@ -444,8 +446,11 @@ async def admin_send_message(
     db.add(new_message)
     db.commit()
     db.refresh(new_message)
-    db.refresh(new_message, attribute_names=["sender"])
-    await broadcast_ticket_event(ticket, "message_created")
+    # Tự động đánh dấu ticket đã đọc khi admin trả lời
+    ticket.last_admin_read_message_id = new_message.id
+    db.commit()
+    
+    await broadcast_ticket_event(ticket, "message_created", sender_id=current_user.id)
     return new_message
 
 
@@ -477,5 +482,5 @@ async def update_ticket_status(
     db.commit()
     db.refresh(ticket)
     db.refresh(ticket, attribute_names=["user"])
-    await broadcast_ticket_event(ticket, "ticket_status_updated")
+    await broadcast_ticket_event(ticket, "ticket_status_updated", sender_id=current_user.id)
     return ticket
