@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông báo tin nhắn mới từ User - SmartHealth</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; color: white; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">🔔 SmartHealth CSKH</h1>
+    </div>
+    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+        <p style="font-size: 16px; color: #333;">Xin chào Admin,</p>
+        <p style="font-size: 16px; color: #333;">Bạn có tin nhắn mới từ người dùng:</p>
+        <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>Người dùng:</strong> {{ user_full_name }} ({{ user_email }})</p>
+            <p style="margin: 0 0 10px 0;"><strong>Chủ đề:</strong> {{ ticket_subject }}</p>
+            <p style="margin: 0;"><strong>Tin nhắn:</strong></p>
+            <p style="background: #f0f0f0; padding: 15px; border-radius: 4px; margin: 10px 0;">{{ message_content }}</p>
+        </div>
+        <p style="font-size: 14px; color: #666;">Vui lòng đăng nhập vào hệ thống để trả lời tin nhắn này.</p>
+        <p style="font-size: 12px; color: #999; margin-top: 30px;">Email này được gửi tự động từ hệ thống SmartHealth.</p>
+    </div>
+</body>
+</html>

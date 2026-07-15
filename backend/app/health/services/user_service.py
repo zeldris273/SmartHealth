@@ -1,0 +1,76 @@
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+import json
+
+from app.health.models.user import User
+from app.health.models.support import SupportTicket
+from app.health.schemas.user import UserProfileUpdate
+
+
+class UserService:
+    @staticmethod
+    def update_profile(
+        db: Session,
+        current_user: User,
+        payload: UserProfileUpdate,
+    ) -> User:
+        # Chỉ lấy các trường thông tin mà Frontend thực sự gửi lên để cập nhật
+        data = payload.model_dump(exclude_unset=True)
+        print(f"Received update data: {data}")
+        print(f"Current user avatar before: {current_user.avatar_url}")
+
+        # 1. Kiểm tra trùng lặp Số CCCD (National ID) của người khác
+        if "national_id" in data and data["national_id"]:
+            existing_user_by_id = (
+                db.query(User)
+                .filter(
+                    User.national_id == data["national_id"],
+                    User.id != current_user.id, # Phải loại trừ chính mình ra nhé
+                )
+                .first()
+            )
+            if existing_user_by_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Số CCCD này đã tồn tại trên hệ thống.",
+                )
+
+        # 2. ---- BỔ SUNG: Kiểm tra trùng lặp Số điện thoại (Phone Number) ----
+        if "phone_number" in data and data["phone_number"]:
+            existing_user_by_phone = (
+                db.query(User)
+                .filter(
+                    User.phone_number == data["phone_number"],
+                    User.id != current_user.id, # Loại trừ chính mình
+                )
+                .first()
+            )
+            if existing_user_by_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Số điện thoại này đã được sử dụng bởi tài khoản khác.",
+                )
+
+        # 3. Kiểm tra xem admin có bật lại email_notification_enabled không
+        if current_user.role == "admin" and "email_notification_enabled" in data:
+            new_value = data["email_notification_enabled"]
+            old_value = current_user.email_notification_enabled
+            print(f"[DEBUG] Admin {current_user.email} changing email_notification_enabled from {old_value} to {new_value}")
+            if new_value is True and old_value is False:
+                # Reset last_notification_sent_at về null cho tất cả tickets để bỏ qua cooldown
+                print(f"[DEBUG] Resetting last_notification_sent_at for all tickets")
+                db.query(SupportTicket).update({SupportTicket.last_notification_sent_at: None})
+
+        # 4. Dynamic Update: Tự động lặp qua các trường hợp lệ để gán giá trị mới
+        for field, value in data.items():
+            if field in ["underlying_diseases", "food_allergies"] and isinstance(value, list):
+                value = json.dumps(value)
+            setattr(current_user, field, value)
+            print(f"Set {field} to: {value[:50] if field == 'avatar_url' and value else value}...")
+
+        # 5. Lưu lại sự thay đổi vào PostgreSQL
+        db.commit()
+        db.refresh(current_user)
+        print(f"Current user avatar after: {current_user.avatar_url[:50] if current_user.avatar_url else 'None'}...")
+
+        return current_user
