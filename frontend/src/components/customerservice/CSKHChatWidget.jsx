@@ -151,6 +151,12 @@ const CSKHChatWidget = () => {
   }, [isOpen]);
 
   useEffect(() => {
+    if (isOpen) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [isOpen, messages, isTyping]);
+
+  useEffect(() => {
     isAdminOnlineRef.current = isAdminOnline;
   }, [isAdminOnline]);
 

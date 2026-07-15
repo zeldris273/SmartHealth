@@ -279,7 +279,7 @@ const Home = () => {
           else if (user.fitness_goal === "gain_weight" || user.fitness_goal === "gain_muscle") goalParam = "gain";
         }
         
-        const tipsRes = await api.get(`/health/tips?goal=${goalParam}`);
+        const tipsRes = await api.get(`/health-tips/tips?goal=${goalParam}`);
         if (tipsRes.data?.goal_tips?.calorie_target) {
           const calorieStr = tipsRes.data.goal_tips.calorie_target;
           const match = calorieStr.match(/\d+([\.,]\d+)?/);

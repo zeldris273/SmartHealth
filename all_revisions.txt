@@ -1,0 +1,19 @@
+11146bd5866c
+3e1b5068f2a7
+53581556eb6f
+784a91fb8a3b
+897d00bd1554
+90bbb7df77ea
+9876543210ab
+a1b2c3d4e5f6
+a691777aaacb
+backend/alembic/versions/b7c2d9a41f03_add_chat_messages_table.py:revision: str = "b7c2d9a41f03"
+be0883201e23
+bec237f46475
+c63f004b43de
+c9526f89f76d
+d4e1f2a3b4c5
+ddea326c0fa9
+backend/alembic/versions/e5f6a7b8c9d0_add_rag_documents_pgvector.py:revision: str = "e5f6a7b8c9d0"
+backend/alembic/versions/f1a2b3c4d5e6_add_chat_sessions_table.py:revision: str = "f1a2b3c4d5e6"
+backend/alembic/versions/f8a9b0c1d2e3_add_sources_to_chat_messages.py:revision: str = "f8a9b0c1d2e3"

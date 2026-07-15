@@ -1,0 +1,19 @@
+be0883201e23
+897d00bd1554
+a691777aaacb
+add_last_online
+11146bd5866c
+bec237f46475
+a1b2c3d4e5f6
+f8a9b0c1d2e3
+backend/alembic/versions/a691777aaacb_add_profile_fields_to_user_table.py:down_revision: Union[str, Sequence[str], None] = None
+backend/alembic/versions/b7c2d9a41f03_add_chat_messages_table.py:down_revision: Union[str, None] = "a691777aaacb"
+d4e1f2a3b4c5
+53581556eb6f
+3e1b5068f2a7
+c63f004b43de
+90bbb7df77ea
+784a91fb8a3b
+backend/alembic/versions/e5f6a7b8c9d0_add_rag_documents_pgvector.py:down_revision: Union[str, None] = "bec237f46475"
+backend/alembic/versions/f1a2b3c4d5e6_add_chat_sessions_table.py:down_revision: Union[str, None] = "e5f6a7b8c9d0"
+backend/alembic/versions/f8a9b0c1d2e3_add_sources_to_chat_messages.py:down_revision: Union[str, Sequence[str], None] = "ddea326c0fa9"
