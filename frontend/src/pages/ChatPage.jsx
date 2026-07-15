@@ -241,15 +241,35 @@ const ChatPage = () => {
     cancelRename();
   };
 
-  const uploadDocuments = async (files) => {
+  const uploadDocuments = async (files, onProgress) => {
     const uploaded = [];
     for (const file of files) {
-      const formData = new FormData();
-      formData.append("file", file.rawFile);
-      const res = await api.post("/health/documents", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      uploaded.push(res.data);
+      try {
+        const formData = new FormData();
+        formData.append("file", file.rawFile);
+        const res = await api.post("/health/documents", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              if (onProgress) {
+                onProgress(file.name, percentCompleted, "uploading");
+              }
+            }
+          },
+        });
+        uploaded.push(res.data);
+        if (onProgress) {
+          onProgress(file.name, 100, "processed");
+        }
+      } catch (error) {
+        if (onProgress) {
+          onProgress(file.name, 0, "failed");
+        }
+        throw error;
+      }
     }
     fetchDocuments();
     return uploaded;
@@ -377,8 +397,9 @@ const ChatPage = () => {
 
   const handleSend = async (text, files = []) => {
     const sessionId = activeConversation?.sessionId || activeSessionId;
+    const userMessageId = `user-${Date.now()}`;
     const userMessage = {
-      id: `user-${Date.now()}`,
+      id: userMessageId,
       from: "user",
       text,
       attachments: files.map(({ name, size, sizeLabel, type }) => ({
@@ -387,6 +408,7 @@ const ChatPage = () => {
         sizeLabel,
         type,
         status: "uploading",
+        progress: 0,
       })),
     };
     const msgBefore = messages;
@@ -402,17 +424,31 @@ const ChatPage = () => {
 
     try {
       if (files.length > 0) {
-        const docs = await uploadDocuments(files);
+        const docs = await uploadDocuments(files, (filename, progress, status = "uploading") => {
+          updateConversation(sessionId, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === userMessageId
+                ? {
+                    ...m,
+                    attachments: m.attachments.map((a) =>
+                      a.name === filename ? { ...a, progress, status } : a
+                    ),
+                  }
+                : m
+            ),
+          }));
+        });
         updateConversation(sessionId, (c) => ({
           ...c,
           messages: c.messages.map((m) =>
-            m.id === userMessage.id
+            m.id === userMessageId
               ? {
                   ...m,
                   attachments: m.attachments.map((a) => {
                     const u = docs.find((d) => d.filename === a.name);
                     return u
-                      ? { ...a, status: "processed", chunkCount: u.chunk_count }
+                      ? { ...a, status: "processed", chunkCount: u.chunk_count, progress: 100 }
                       : a;
                   }),
                 }
@@ -460,14 +496,23 @@ const ChatPage = () => {
       let receivedSources = [];
       let sseBuffer = "";
 
-      const applyBotUpdate = (patch) => {
-        updateConversation(sessionId, (c) => ({
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === botMsgId ? { ...m, ...patch } : m
-          ),
-        }));
-      };
+       const applyBotUpdate = (patch) => {
+         updateConversation(sessionId, (c) => {
+           const updatedMessages = c.messages.map((m) =>
+             m.id === botMsgId ? { ...m, ...patch } : m
+           );
+
+           if (patch.text && patch.text.includes("không liên quan đến chủ đề y tế")) {
+             updatedMessages.forEach((m) => {
+               if (m.id === userMessageId && m.attachments) {
+                 m.attachments = m.attachments.map((a) => ({ ...a, status: "failed" }));
+               }
+             });
+           }
+
+           return { ...c, messages: updatedMessages };
+         });
+       };
 
       while (true) {
         const { value, done } = await reader.read();
@@ -553,17 +598,35 @@ const ChatPage = () => {
       incrementNotificationCount(1, user?.id);
     } catch (error) {
       console.error("Chat Error:", error);
+      let errorMsg = "Hiện chưa xử lý được yêu cầu. Vui lòng thử lại.";
+      if (error.response?.data?.detail) {
+        errorMsg = typeof error.response.data.detail === "string"
+          ? error.response.data.detail
+          : JSON.stringify(error.response.data.detail);
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+
       updateConversation(sessionId, (c) => ({
         ...c,
         messages: [
-          ...c.messages.filter(
-            (m) => !(botMsgId && m.id === botMsgId && !m.text),
-          ),
+          ...c.messages
+            .map((m) =>
+              m.id === userMessageId && m.attachments
+                ? {
+                    ...m,
+                    attachments: m.attachments.map((a) =>
+                      a.status === "uploading" ? { ...a, status: "failed" } : a
+                    ),
+                  }
+                : m
+            )
+            .filter((m) => !(botMsgId && m.id === botMsgId && !m.text)),
           {
             id: `error-${Date.now()}`,
             from: "bot",
             isError: true,
-            text: error.message || "Hiện chưa xử lý được yêu cầu. Vui lòng thử lại.",
+            text: errorMsg,
           },
         ],
       }));

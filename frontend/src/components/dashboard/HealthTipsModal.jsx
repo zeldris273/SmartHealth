@@ -13,7 +13,7 @@ const HealthTipsModal = ({ isOpen, onClose, tdee, currentWeight }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/health/tips', {
+      const response = await api.get('/health-tips/tips', {
         params: {
           tdee: tdee,
           goal: goal,

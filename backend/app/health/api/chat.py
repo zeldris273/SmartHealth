@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.health.core.calories_calculator import process_calories
 from app.health.core.config import settings
-from app.health.models import BMIRecord, ChatMessage, ChatSession, User
+from app.health.models import BMIRecord, ChatMessage, ChatSession, User, KnowledgeDocument
 from app.health.schemas.chat import (
     ChatConversationMessage,
     ChatConversationResponse,
@@ -362,6 +362,18 @@ async def chat_with_ai(
 
     health_context = build_health_context(current_user, latest_bmi, bmi_history)
 
+    active_filenames = []
+    if current_user:
+        docs = (
+            db.query(KnowledgeDocument)
+            .filter(
+                KnowledgeDocument.user_id == current_user.id,
+                KnowledgeDocument.is_deleted == False,  # noqa: E712
+            )
+            .all()
+        )
+        active_filenames = [doc.filename for doc in docs]
+
     async def event_generator():
         full_reply = ""
         try:
@@ -373,6 +385,7 @@ async def chat_with_ai(
                 history=history,
                 health_context=health_context,
                 retrieved_context=retrieved_context,
+                active_filenames=active_filenames,
             ):
                 full_reply += token
                 yield f"data: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"

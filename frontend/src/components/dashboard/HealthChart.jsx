@@ -19,10 +19,9 @@ const HealthChart = ({ refreshKey }) => {
 
     try {
       const response = await api.get('/health/bmi/history');
-      console.log('BMI History response:', response.data); // Debug log
       
       if (response.data && Array.isArray(response.data)) {
-        const history = response.data.reverse(); // đảo lại để cũ nhất trước, mới nhất sau
+        const history = response.data.reverse(); 
         const data = history.map(record => {
           const date = new Date(record.created_at);
           const day = String(date.getDate()).padStart(2, '0');

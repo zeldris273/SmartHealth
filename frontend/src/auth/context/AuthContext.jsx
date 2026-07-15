@@ -189,6 +189,15 @@ export const AuthProvider = ({ children }) => {
         if (payload.type === 'admin_status') {
           setIsAdminOnline(payload.is_admin_online);
         } else if (['ticket_created', 'message_created'].includes(payload.type)) {
+          // Do not notify if this admin sent the message
+          if (payload.sender_id && payload.sender_id === user?.id) {
+            return;
+          }
+          // Do not notify if this admin is actively viewing this ticket
+          const activeTicketId = sessionStorage.getItem('active_support_ticket_id');
+          if (activeTicketId && parseInt(activeTicketId, 10) === payload.ticket_id) {
+            return;
+          }
           window.dispatchEvent(new CustomEvent('notification:new', { detail: { count: 1 } }));
         }
       };
