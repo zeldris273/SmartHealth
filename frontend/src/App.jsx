@@ -30,11 +30,14 @@ const AppContent = () => {
         theme="light"
         toastClassName="bg-[#1a1a1a]/95 backdrop-blur-xl border border-[#8b2b2b]/30 text-white rounded-xl shadow-2xl"
       />
+
       <AuthModal />
       <Header />
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
+
         <Route
           path="/profile"
           element={
@@ -43,24 +46,28 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
-              path="/chat"
-              element={
-                <ProtectedRoute>
-                  <ChatPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <AdminDashboard />
-                </AdminRoute>
-              }
-            />
-            <Route path="/access-denied" element={<AccessDenied />} />
-          </Routes>
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+
+        <Route path="/access-denied" element={<AccessDenied />} />
+      </Routes>
+
       <ConditionalCSKHWidget />
     </AuthProvider>
   );
@@ -69,7 +76,6 @@ const AppContent = () => {
 const ConditionalCSKHWidget = () => {
   const { user, isAuthenticated } = useAuth();
 
-  // Don't show CSKH widget if user is admin
   if (isAuthenticated && user?.role === 'admin') {
     return null;
   }

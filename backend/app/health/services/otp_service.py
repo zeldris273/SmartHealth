@@ -35,7 +35,11 @@ class OTPService:
         if last_otp:
             # Tính thời gian đã trôi qua kể từ lúc tạo OTP gần nhất
             now = datetime.now(timezone.utc)
-            time_passed = now - last_otp.created_at
+            created_at = last_otp.created_at
+            # Nếu created_at là naive (không có timezone), thêm timezone utc
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            time_passed = now - created_at
             
             if time_passed.total_seconds() < settings.OTP_RESEND_COOLDOWN_SECONDS:
                 raise HTTPException(
@@ -104,7 +108,11 @@ class OTPService:
             )
 
         # Kiểm tra thời hạn hiệu lực
-        if otp.expires_at < datetime.now(timezone.utc):
+        expires_at = otp.expires_at
+        # Nếu expires_at là naive (không có timezone), thêm timezone utc
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Mã OTP đã hết hạn sử dụng.",
